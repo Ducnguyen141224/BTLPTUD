@@ -333,4 +333,22 @@ public class MonAn_DAO {
         }
         return monAn;
     }
+    public MonAn getMonAnTheoTen(String tenMon) {
+        String sql = "SELECT maMon, tenMon, loaiMon, giaMon, hinhAnh, maQL FROM MONAN WHERE tenMon = ?";
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, tenMon);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return createMonAnFromResultSet(rs);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi khi lấy món theo tên: " + e.getMessage());
+        }
+        return null;
+    }
+
 }

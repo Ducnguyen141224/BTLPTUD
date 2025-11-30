@@ -12,6 +12,14 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
 import dao.BanDat_DAO;
 import dao.Ban_DAO;
+import dao.CTHoaDon_DAO;
+import dao.HoaDon_DAO;
+import dao.MonAn_DAO;
+import entity.Ban;
+import entity.CT_HoaDon;
+import entity.HoaDon;
+import entity.MonAn;
+import entity.NhanVien;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -65,13 +73,20 @@ public class ThanhToan_Gui extends JPanel {
     private double tienCoc = 0; 
     private double tongTienSauGiamGia = 0; 
     
+    private String maBan;
+    private NhanVien nhanVienHienTai;
+    private String maHoaDon;
     
-    public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2) {
-        this.gioHangXacNhan = gioHangXacNhan;
+    
+    public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2, String maBan, NhanVien nhanVien) {
+    	this.maHoaDon = new HoaDon_DAO().layMaHDTiepTheo();
+    	this.gioHangXacNhan = gioHangXacNhan;
         this.bangGia = bangGia;
         this.tongTienHoaDonBanDau = tongTienHoaDon;
         this.tongTienSauGiamGia = tongTienHoaDon; 
         this.tienCoc = tienCoc2;
+        this.maBan = maBan;
+        this.nhanVienHienTai = nhanVien;
         dinhDangTien = NumberFormat.getInstance(new Locale("vi", "VN"));
 
         setLayout(new BorderLayout());
@@ -343,9 +358,9 @@ public class ThanhToan_Gui extends JPanel {
         // Thông tin chung
         JPanel pnlThongTin = new JPanel(new GridLayout(3, 2, 0, 5));
         pnlThongTin.setBackground(Color.WHITE);
-        pnlThongTin.add(new JLabel("Mã HĐ: XXX"));
-        pnlThongTin.add(new JLabel("Thu ngân: XYZ"));
-        pnlThongTin.add(new JLabel("Bàn: 01"));
+        pnlThongTin.add(new JLabel("Mã HĐ: " + maHoaDon));
+        pnlThongTin.add(new JLabel("Thu ngân: " + nhanVienHienTai.getHoTen()));
+        pnlThongTin.add(new JLabel("Bàn: "+ maBan));
         pnlThongTin.add(new JLabel("Ngày: " + new java.util.Date().toLocaleString().split(" ")[0]));
         pnlThongTin.add(new JLabel("Giờ vào: 10:00"));
         pnlThongTin.add(new JLabel("Giờ ra: 10:45"));
@@ -597,52 +612,127 @@ public class ThanhToan_Gui extends JPanel {
  // Trong ThanhToan_Gui.java
 
     private void inHoaDon() {
-        // 1. Kiểm tra tiền khách đưa (Nếu là Tiền mặt)
-        if (soTienKhachDua < tongTienSauGiamGia && hinhThucThanhToan.equals("Tiền mặt")) {
-            JOptionPane.showMessageDialog(this, "Số tiền khách đưa không đủ!", "Lỗi Thanh Toán", JOptionPane.ERROR_MESSAGE);
+
+        // 1. Kiểm tra tiền khách đưa (chỉ áp dụng với Tiền mặt)
+        if (hinhThucThanhToan.equals("Tiền mặt") && soTienKhachDua < tongTienSauGiamGia) {
+            JOptionPane.showMessageDialog(this,
+                    "Số tiền khách đưa không đủ!",
+                    "Lỗi Thanh Toán",
+                    JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // 2. GỌI HÀM TẠO PDF
-        // 💡 SỬA: Truyền 'tongTienSauGiamGia' (tổng tiền cuối cùng) vào hàm tạo PDF
+        // -------------------------------------------------------------------
+        // 2. LƯU HÓA ĐƠN XUỐNG DATABASE (phần bạn yêu cầu thêm)
+        // -------------------------------------------------------------------
+        try {
+            HoaDon_DAO hdDAO = new HoaDon_DAO();
+            CTHoaDon_DAO ctDAO = new CTHoaDon_DAO();
+            MonAn_DAO monDAO = new MonAn_DAO();
+
+            // Tạo mã hóa đơn
+            String maHD = hdDAO.layMaHDTiepTheo();
+            this.maHoaDon = maHD;
+            HoaDon hd = new HoaDon(maHD);
+
+            hd.setNgayLap(LocalDateTime.now());
+
+            // TODO: thay bằng nhân viên đang đăng nhập thật
+            hd.setNhanVien(nhanVienHienTai);
+
+            // TODO: thay bằng mã bàn thật
+            hd.setBan(new Ban(maBan));
+            hd.setBanDat(null);
+            hd.setKhuyenMai(null);
+            hd.setTheThanhVien(null);
+
+            ArrayList<CT_HoaDon> dsCT = new ArrayList<>();
+
+            for (Map.Entry<String, Integer> item : gioHangXacNhan.entrySet()) {
+
+                String tenMon = item.getKey();
+                int soLuong = item.getValue();
+
+                // Lấy món chính xác từ DB
+                MonAn mon = monDAO.getMonAnTheoTen(tenMon);
+
+                if (mon == null) {
+                    JOptionPane.showMessageDialog(this,
+                            "Không tìm thấy món ăn trong DB: " + tenMon,
+                            "Lỗi dữ liệu",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Tạo chi tiết hóa đơn đúng dạng entity
+                CT_HoaDon ct = new CT_HoaDon(hd, mon, soLuong);
+                dsCT.add(ct);
+            }
+
+            hd.setDanhSachChiTietHoaDon(dsCT);
+
+            // Lưu xuống DB
+            boolean ok = hdDAO.themHoaDon(hd);
+
+            if (!ok) {
+                JOptionPane.showMessageDialog(this,
+                        "❌ Lưu hóa đơn thất bại!",
+                        "Lỗi database",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                    "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+            return; // Ngừng lại, không in PDF nếu lưu thất bại
+        }
+
+        // -------------------------------------------------------------------
+        // 3. TOÀN BỘ PHẦN PDF GIỮ NGUYÊN – KHÔNG SỬA ĐỔI NHƯ BẠN YÊU CẦU
+        // -------------------------------------------------------------------
+
+        // GỌI HÀM TẠO PDF
         String duongDanPDF = taoHoaDonPDF(this.gioHangXacNhan, this.tongTienSauGiamGia);
-        
+
         String thongBao;
 
         if (duongDanPDF != null) {
-            // 3a. Thông báo thành công
             thongBao = String.format(
-                "Thanh toán thành công!\n" +
-                "Tổng tiền HĐ: %s VND\n" +
-                "Giảm giá: %s VND\n" +
-                "Phải thu: %s VND\n" +
-                "Hình thức: %s\n" +
-                "Khách đưa: %s VND\n" +
-                "Tiền thừa: %s VND\n\n" +
-                "Đã xuất hóa đơn tại:\n%s",
-                dinhDangTien.format(tongTienHoaDonBanDau), 
-                dinhDangTien.format(giamGia),
-                dinhDangTien.format(tongTienSauGiamGia), 
-                hinhThucThanhToan,
-                dinhDangTien.format(soTienKhachDua),
-                dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia),
-                duongDanPDF 
+                    "Thanh toán thành công!\n" +
+                    "Tổng tiền HĐ: %s VND\n" +
+                    "Giảm giá: %s VND\n" +
+                    "Phải thu: %s VND\n" +
+                    "Hình thức: %s\n" +
+                    "Khách đưa: %s VND\n" +
+                    "Tiền thừa: %s VND\n\n" +
+                    "Đã xuất hóa đơn tại:\n%s",
+                    dinhDangTien.format(tongTienHoaDonBanDau),
+                    dinhDangTien.format(giamGia),
+                    dinhDangTien.format(tongTienSauGiamGia),
+                    hinhThucThanhToan,
+                    dinhDangTien.format(soTienKhachDua),
+                    dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia),
+                    duongDanPDF
             );
         } else {
-            // 3b. Thông báo nếu PDF bị lỗi
-             thongBao = String.format(
-                "Thanh toán thành công!\n" +
-                "Tổng tiền HĐ: %s VND\n" +
-                "Lỗi: Không thể xuất file PDF.",
-                dinhDangTien.format(tongTienSauGiamGia)
+            thongBao = String.format(
+                    "Thanh toán thành công!\n" +
+                    "Tổng tiền HĐ: %s VND\n" +
+                    "Lỗi: Không thể xuất file PDF.",
+                    dinhDangTien.format(tongTienSauGiamGia)
             );
         }
 
         JOptionPane.showMessageDialog(this, thongBao, "In Hóa Đơn", JOptionPane.INFORMATION_MESSAGE);
 
-        // 4. Đóng cửa sổ (Kích hoạt hàm lamMoiSauThanhToan() trong GoiMon_GUI)
+        // ĐÓNG CỬA SỔ
         ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
     }
+
     
  // Trong lớp ThanhToan_Gui.java
 
@@ -1002,6 +1092,7 @@ public class ThanhToan_Gui extends JPanel {
              System.err.println("Lỗi QR Code: Vui lòng kiểm tra đã thêm core.jar và javase.jar chưa.");
         }
     }
+    
     
     // --- Phương thức main (để chạy thử) ---
 //    public static void main(String[] args) {

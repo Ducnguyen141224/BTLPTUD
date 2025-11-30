@@ -16,6 +16,7 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
 	JTextField txtTenDN;
 	JPasswordField txtMatKhau;
 	JButton btnDangNhap, btnQMK;
+	public static TaiKhoan taiKhoanDangNhap;
 	public DangNhap_GUI() {
 		
 		setTitle("Đăng nhập");
@@ -109,11 +110,15 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
 	    Object o = e.getSource();
 
 	    if (o == btnDangNhap) {
-	    	TaiKhoan_DAO dao = new TaiKhoan_DAO();
+	        TaiKhoan_DAO dao = new TaiKhoan_DAO();
 	        String user = txtTenDN.getText().trim();
 	        String pass = new String(txtMatKhau.getPassword());
 
-	        if (dao.dangNhap(user, pass)) {
+	        TaiKhoan tk = dao.dangNhap(user, pass);   // 🔥 SỬA DUY NHẤT 1 DÒNG
+
+	        if (tk != null) {
+	            DangNhap_GUI.taiKhoanDangNhap = tk;   // 🔥 LƯU TÀI KHOẢN ĐĂNG NHẬP
+
 	            JOptionPane.showMessageDialog(this, "Đăng nhập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
 	            new TrangChinh_Form();
 	            this.dispose();
@@ -123,8 +128,16 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
 	        }
 	    }
 
+
 	    if (o == btnQMK){
 	    	 new QuenMatKhau_GUI();
 	    }
 	}
+	public static void main(String[] args) {
+	    SwingUtilities.invokeLater(() -> {
+	        new DangNhap_GUI().setVisible(true);
+	    });
+	}
+
+	
 }

@@ -380,7 +380,9 @@ public class GoiMon_GUI extends JPanel {
                 gioHangXacNhan, 
                 bangGia, 
                 tongTienHoaDon,
-                tienCoc 
+                tienCoc,
+                maBanHienTai,
+                DangNhap_GUI.taiKhoanDangNhap.getNhanVien()
             );
             thanhToanFrame.setContentPane(thanhToanPanel);
             

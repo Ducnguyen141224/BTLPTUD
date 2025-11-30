@@ -83,16 +83,4 @@ public class HoaDon {
     public void setBanDat(BanDat banDat) { this.banDat = banDat; }
     public void setKhuyenMai(KhuyenMai khuyenMai) { this.khuyenMai = khuyenMai; }
 
-    // Equals và HashCode
-    @Override
-    public int hashCode() {
-        return maHoaDon.hashCode();
-    }
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        HoaDon other = (HoaDon) obj;
-        return maHoaDon != null && maHoaDon.equals(other.maHoaDon);
-    }
 }
