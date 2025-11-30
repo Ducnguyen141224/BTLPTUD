@@ -26,19 +26,20 @@ public class HoaDon_DAO {
     // TẠO OBJECT HOÁ ĐƠN TỪ RESULTSET
     // =========================================================
     private HoaDon createHoaDonFromResultSet(ResultSet rs) throws Exception {
-
         String maHD = rs.getString("maHD");
         String maThe = rs.getString("maThe");
         String maNV = rs.getString("maNV");
         String maBan = rs.getString("maBan");
         String maDatBan = rs.getString("maDatBan");
         String maKM = rs.getString("maKM");
+        String trangThai = rs.getString("trangThaiThanhToan"); // Lấy thêm trạng thái
 
         Timestamp ngayLapTs = rs.getTimestamp("ngayLap");
         LocalDateTime ngayLap = ngayLapTs != null ? ngayLapTs.toLocalDateTime() : LocalDateTime.now();
 
         HoaDon hd = new HoaDon(maHD);
         hd.setNgayLap(ngayLap);
+        hd.setTrangThaiThanhToan(trangThai); // Cần set trạng thái vào Entity
 
         hd.setTheThanhVien(maThe != null ? new TheThanhVien(maThe) : null);
         hd.setNhanVien(new NhanVien(maNV));
@@ -50,29 +51,32 @@ public class HoaDon_DAO {
     }
 
     // =========================================================
-    // THÊM HÓA ĐƠN
+    // THÊM HÓA ĐƠN (Gồm cả Transaction thêm CT_HoaDon)
     // =========================================================
+    
     public boolean themHoaDon(HoaDon hd) {
         Connection con = null;
         boolean success = false;
 
-        String sqlHD = "INSERT INTO HOADON (maHD, maThe, maNV, maBan, maDatBan, maKM, ngayLap,tongTien , trangThaiThanhToan) "
-                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)";
+        // SỬA LỖI: Format lại câu query cho dễ nhìn và chuẩn xác
+        String sqlHD = "INSERT INTO HOADON (maHD, maThe, maNV, maBan, maDatBan, maKM, ngayLap, tongTien, trangThaiThanhToan) "
+                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try {
             con = ConnectDB.getConnection();
-            con.setAutoCommit(false);
+            con.setAutoCommit(false); // Bắt đầu Transaction
 
             try (PreparedStatement psHD = con.prepareStatement(sqlHD)) {
                 psHD.setString(1, hd.getMaHoaDon());
-                psHD.setString(2, hd.getTheThanhVien() != null ? hd.getTheThanhVien().getMaThe() : null);
+                // Kiểm tra null an toàn hơn
+                psHD.setString(2, (hd.getTheThanhVien() != null) ? hd.getTheThanhVien().getMaThe() : null);
                 psHD.setString(3, hd.getNhanVien().getMaNV());
                 psHD.setString(4, hd.getBan().getMaBan());
-                psHD.setString(5, hd.getBanDat() != null ? hd.getBanDat().getMaDatBan() : null);
-                psHD.setString(6, hd.getKhuyenMai() != null ? hd.getKhuyenMai().getMaKM() : null);
+                psHD.setString(5, (hd.getBanDat() != null) ? hd.getBanDat().getMaDatBan() : null);
+                psHD.setString(6, (hd.getKhuyenMai() != null) ? hd.getKhuyenMai().getMaKM() : null);
                 psHD.setTimestamp(7, Timestamp.valueOf(hd.getNgayLap()));
                 psHD.setDouble(8, hd.tinhTongTien());
-                psHD.setString(9, "Chờ thanh toán"); // trạng thái
+                psHD.setString(9, "Chờ thanh toán"); // Hardcode trạng thái ban đầu
 
                 if (psHD.executeUpdate() <= 0) {
                     con.rollback();
@@ -81,8 +85,10 @@ public class HoaDon_DAO {
             }
 
             // THÊM CT HOÁ ĐƠN
-            if (hd.getDanhSachChiTietHoaDon() != null) {
+            if (hd.getDanhSachChiTietHoaDon() != null && !hd.getDanhSachChiTietHoaDon().isEmpty()) {
                 for (CT_HoaDon ct : hd.getDanhSachChiTietHoaDon()) {
+                    // LƯU Ý QUAN TRỌNG: Hàm themCTHoaDon phải nhận tham số Connection
+                    // và KHÔNG ĐƯỢC close connection đó.
                     if (!ctHoaDonDAO.themCTHoaDon(ct, con)) {
                         con.rollback();
                         return false;
@@ -90,27 +96,37 @@ public class HoaDon_DAO {
                 }
             }
 
-            con.commit();
+            con.commit(); // Xác nhận Transaction thành công
             success = true;
 
         } catch (SQLException e) {
             e.printStackTrace();
-            try { if (con != null) con.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            try {
+                if (con != null) con.rollback(); // Rollback nếu có lỗi SQL
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            try { if (con != null) con.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+            // Chỉ đóng kết nối ở đây
+            try {
+                if (con != null) con.close();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         }
         return success;
     }
 
     // =========================================================
-    // LẤY HOÁ ĐƠN MỚI NHẤT THEO BÀN
+    // LẤY HOÁ ĐƠN CHƯA THANH TOÁN THEO BÀN (Đã sửa logic)
     // =========================================================
-    public HoaDon layHoaDonChuaThanhToanTheoBan(String maBan, String maNV) {
+    public HoaDon layHoaDonChuaThanhToanTheoBan(String maBan) { // Bỏ tham số maNV vì không dùng
         HoaDon hd = null;
 
-        String sql = "SELECT TOP 1 * FROM HOADON WHERE maBan = ? ORDER BY ngayLap DESC";
+        // SỬA LỖI: Thêm điều kiện trangThaiThanhToan để tránh lấy nhầm hóa đơn cũ
+        String sql = "SELECT TOP 1 * FROM HOADON WHERE maBan = ? AND trangThaiThanhToan = N'Chờ thanh toán' ORDER BY ngayLap DESC";
 
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -120,8 +136,8 @@ public class HoaDon_DAO {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     hd = createHoaDonFromResultSet(rs);
-                    ArrayList<CT_HoaDon> dsCT =
-                            ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon());
+                    // Load chi tiết hóa đơn đi kèm
+                    ArrayList<CT_HoaDon> dsCT = ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon());
                     hd.setDanhSachChiTietHoaDon(dsCT);
                 }
             }
@@ -131,36 +147,36 @@ public class HoaDon_DAO {
         return hd;
     }
 
-
     // =========================================================
     // LẤY MÃ HOÁ ĐƠN TIẾP THEO
     // =========================================================
     public String layMaHDTiepTheo() {
+        // Query này hoạt động tốt với format HD001, HD002...
+        // Tuy nhiên cần đảm bảo trong DB không có rác (ví dụ HDABC) nếu không sẽ lỗi cast int
         String sql = "SELECT MAX(CAST(SUBSTRING(maHD, 3, LEN(maHD)) AS INT)) AS MaxNum FROM HOADON";
 
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
-            if (rs.next() && rs.getString("MaxNum") != null) {
+            if (rs.next()) {
+                // Nếu DB chưa có dữ liệu, rs.getInt trả về 0, maxNum + 1 = 1 -> HD001 (Đúng)
                 int maxNum = rs.getInt("MaxNum");
-                return String.format("HD%04d", maxNum + 1);
+                return String.format("HD%03d", maxNum + 1);
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return "HD0001"; 
+        return "HD001"; // Fallback nếu lỗi
     }
 
-
     // =========================================================
-    // ⭐⭐ LẤY TẤT CẢ HÓA ĐƠN – dành cho GUI ⭐⭐
+    // LẤY TẤT CẢ HÓA ĐƠN
     // =========================================================
     public List<HoaDon> getAllHoaDon() {
         List<HoaDon> ds = new ArrayList<>();
-
         String sql = "SELECT * FROM HOADON ORDER BY ngayLap DESC";
 
         try (Connection con = ConnectDB.getConnection();
@@ -169,19 +185,14 @@ public class HoaDon_DAO {
 
             while (rs.next()) {
                 HoaDon hd = createHoaDonFromResultSet(rs);
-
-                // Lấy chi tiết
-                hd.setDanhSachChiTietHoaDon(
-                        ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon())
-                );
-
+                // Có thể cân nhắc KHÔNG load chi tiết ở đây nếu danh sách quá dài (Lazy loading)
+                // để tăng tốc độ hiển thị danh sách ban đầu.
+                // hd.setDanhSachChiTietHoaDon(ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon()));
                 ds.add(hd);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-
         return ds;
     }
 }
-

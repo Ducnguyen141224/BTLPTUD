@@ -25,7 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
-public class BanDat_GUI extends JPanel {
+public class bandat_test_GUI extends JPanel {
     
     private JTextField txtMaDatBan, txtTenKhachHang, txtSoDienThoai, txtSoNguoi, txtTienCoc; 
     private JDateChooser dcNgayDat;
@@ -54,7 +54,7 @@ public class BanDat_GUI extends JPanel {
     private final Color COLOR_BG = new Color(250, 250, 250);
     private final Color COLOR_CARD_BG = Color.WHITE;
     
-    public BanDat_GUI() {
+    public bandat_test_GUI() {
         setLayout(new BorderLayout(0, 0));
         setBackground(COLOR_BG);
         
@@ -704,7 +704,7 @@ public class BanDat_GUI extends JPanel {
             JFrame frame = new JFrame("Đặt Bàn");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(1400, 900);
-            frame.add(new BanDat_GUI());
+            frame.add(new bandat_test_GUI());
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
