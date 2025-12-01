@@ -769,7 +769,8 @@ public class ThanhToan_Gui extends JPanel {
                 y += 15;
 
                 g2.drawString("Bàn: " + maBan, 10, y);
-                g2.drawString("Ngày: " + java.time.LocalTime.now().withNano(0), 200, y);
+                DateTimeFormatter dfDate = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                g2.drawString("Ngày: " + LocalDate.now().format(dfDate), 200, y);
                 y += 15;
 
                 DateTimeFormatter f = DateTimeFormatter.ofPattern("HH:mm");
