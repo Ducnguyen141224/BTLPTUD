@@ -1,4 +1,4 @@
-﻿CREATE DATABASE QLNH;
+﻿﻿CREATE DATABASE QLNH;
 GO
 
 USE QLNH;
@@ -115,6 +115,7 @@ CREATE TABLE BANDAT (
     soLuongKhach INT NOT NULL CHECK (soLuongKhach > 0),
     tienCoc FLOAT NOT NULL CHECK (tienCoc >= 0),
     trangThai NVARCHAR(20) NOT NULL, 
+    gioCheckIn TIME NULL, 
     
     FOREIGN KEY (maKH) REFERENCES KHACHHANG(maKH),
     FOREIGN KEY (maBan) REFERENCES BAN(maBan)
@@ -252,8 +253,8 @@ INSERT INTO BAN (maBan, loaiBan, soGhe, khuVuc, trangThai) VALUES
 ('B003', N'Phòng VIP', 10, N'Tầng 2', N'Đã đặt');
 
 -- 7. BANDAT
-INSERT INTO BANDAT (maDatBan, maKH, maBan, ngayDat, gioDat, ghiChu, soLuongKhach, tienCoc, trangThai) VALUES
-('DB001', 'KH001', 'B003', '2025-10-27', '18:30:00', N'Kỷ niệm ngày cưới', 5, 200000, N'Đã nhận');
+INSERT INTO BANDAT (maDatBan, maKH, maBan, ngayDat, gioDat, ghiChu, soLuongKhach, tienCoc, trangThai, gioCheckIn) VALUES
+('DB001', 'KH001', 'B003', '2025-10-27', '18:30:00', N'Kỷ niệm ngày cưới', 5, 200000, N'Đã nhận',NULL);
 
 -- 8. KHUYENMAI (Sửa lỗi cú pháp)
 INSERT INTO KHUYENMAI (maKM, tenKM, moTa, phanTramGiam, ngayBatDau, ngayKetThuc, maQL) VALUES

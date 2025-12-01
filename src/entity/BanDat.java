@@ -16,11 +16,14 @@ public class BanDat {
     private int soLuongKhach;
     private double tienCoc;
     private String trangThai;
-    private String ghiChu;       
+    private String ghiChu;   
+    private LocalTime gioCheckIn;
+    public LocalTime getGioCheckIn() { return gioCheckIn; }
+    public void setGioCheckIn(LocalTime gioCheckIn) { this.gioCheckIn = gioCheckIn; }
 
     
     public BanDat(String maDatBan, KhachHang khachHang, Ban ban, LocalDate ngayDat, LocalTime gioDat, 
-                  int soLuongKhach, double tienCoc, String trangThai, String ghiChu) {
+                  int soLuongKhach, double tienCoc, String trangThai, String ghiChu, LocalTime gioCheckIn) {
       
         this.maDatBan = maDatBan;
         this.khachHang = khachHang;
@@ -31,6 +34,7 @@ public class BanDat {
         this.tienCoc = tienCoc;
         this.trangThai = trangThai;
         this.ghiChu = ghiChu;
+        this.gioCheckIn = gioCheckIn;
     }
 
    

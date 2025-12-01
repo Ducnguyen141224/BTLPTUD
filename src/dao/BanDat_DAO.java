@@ -1,3 +1,4 @@
+
 package dao;
 
 import connectDB.ConnectDB;
@@ -36,17 +37,20 @@ public class BanDat_DAO {
         double tienCoc = rs.getDouble("tienCoc");
         String trangThai = rs.getString("trangThai");
         String ghiChu = rs.getString("ghiChu");
+        Time gioCheckInSQL = rs.getTime("gioCheckIn");
+        LocalTime gioCheckIn = (gioCheckInSQL != null) ? gioCheckInSQL.toLocalTime() : null;
 
-        // Tạo đối tượng BanDat mới
-        return new BanDat(maDatBan, khachHang, ban, ngayDat, gioDat, 
-                          soLuongKhach, tienCoc, trangThai, ghiChu);
+        BanDat bd = new BanDat(maDatBan, khachHang, ban, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu,gioCheckIn);
+        bd.setGioCheckIn(gioCheckIn);  // gán giờ check-in
+
+        return bd;
     }
 
     public ArrayList<BanDat> getAllBanDat() {
         ArrayList<BanDat> dsDatBan = new ArrayList<>();
         Connection con = ConnectDB.getConnection();
         // Cần SELECT cả mã KH và mã Bàn để query đối tượng
-        String sql = "SELECT maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu FROM BANDAT";
+        String sql = "SELECT maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu, gioCheckIn FROM BANDAT";
         
         try (PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -65,7 +69,7 @@ public class BanDat_DAO {
     public BanDat getBanDatById(String maDatBan) {
         BanDat banDat = null;
         Connection con = ConnectDB.getConnection();
-        String sql = "SELECT maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu FROM BANDAT WHERE maDatBan = ?";
+        String sql = "SELECT maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu,gioCheckIn FROM BANDAT WHERE maDatBan = ?";
         
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maDatBan);
@@ -90,54 +94,89 @@ public class BanDat_DAO {
         LocalDate ngayHienTai = LocalDate.now();
         LocalTime gioHienTai = LocalTime.now();
 
+        // ⭐ Xác định khách vào trực tiếp (không áp dụng kiểm tra giờ)
+        boolean laKhachTrucTiep =
+                banDat.getGhiChu() != null &&
+                banDat.getGhiChu().equalsIgnoreCase("Khách vào trực tiếp");
+
         // ⚠️ Trường hợp 1: Bàn đang sử dụng
         if (trangthai.equals("Đang sử dụng")) {
-            LocalTime gioChoPhep = gioHienTai.plusHours(4); // chỉ cho phép đặt sau 4 tiếng
-           
-            if (banDat.getNgayDat().equals(ngayHienTai) && banDat.getGioDat().isBefore(gioChoPhep)) {
-                throw new Exception("Bàn này đang được sử dụng — chỉ có thể đặt sau "
-                                    + gioChoPhep.truncatedTo(java.time.temporal.ChronoUnit.MINUTES) + ".");
+            LocalTime gioChoPhep = gioHienTai.plusHours(4);
+
+            if (!laKhachTrucTiep) {   // ⭐ tránh chặn khách trực tiếp
+                if (banDat.getNgayDat().equals(ngayHienTai)
+                 && banDat.getGioDat().isBefore(gioChoPhep)) {
+                    throw new Exception("Bàn này đang được sử dụng — chỉ có thể đặt sau "
+                            + gioChoPhep.truncatedTo(java.time.temporal.ChronoUnit.MINUTES) + ".");
+                }
             }
         }
 
-        // ⚠️ Trường hợp 2: Bàn trống nhưng đặt trong quá khứ (ví dụ bây giờ 10h mà đặt 9h)
+        // ⚠️ Trường hợp 2: Bàn trống nhưng đặt giờ quá khứ
         if (trangthai.equals("Trống")) {
-            if (banDat.getNgayDat().equals(ngayHienTai) && banDat.getGioDat().isBefore(gioHienTai)) {
-                throw new Exception("Giờ đặt phải sau thời điểm hiện tại (" 
-                                    + gioHienTai.truncatedTo(java.time.temporal.ChronoUnit.MINUTES) + ").");
+            if (!laKhachTrucTiep) {   // ⭐ KHÔNG check với khách trực tiếp
+                if (banDat.getNgayDat().equals(ngayHienTai)
+                 && banDat.getGioDat().isBefore(gioHienTai)) {
+                    throw new Exception("Giờ đặt phải sau thời điểm hiện tại ("
+                            + gioHienTai.truncatedTo(java.time.temporal.ChronoUnit.MINUTES) + ").");
+                }
             }
         }
 
-        // ⚠️ Trường hợp 3: Kiểm tra xung đột đặt bàn (±2 tiếng)
+        // ⚠️ Trường hợp 3: Kiểm tra xung đột đặt bàn (khách trực tiếp vẫn phải check để tránh chồng chéo)
         boolean xungDot = kiemTraXungDotDatBan(maBan, banDat.getNgayDat(), banDat.getGioDat());
         if (xungDot) {
             throw new Exception("Bàn này đã được đặt trong khoảng thời gian ±2 tiếng so với giờ bạn chọn.");
         }
 
-        // ⚙️ Trường hợp 4: Thêm mới đặt bàn
-        String sql = "INSERT INTO BANDAT (maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // --- INSERT DATABASE ---
+        String sql = "INSERT INTO BANDAT (maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu,gioCheckIn) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         int n = 0;
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, banDat.getMaDatBan());
-            ps.setString(2, banDat.getKhachHang().getMaKH()); 
-            ps.setString(3, maBan); 
+            ps.setString(2, banDat.getKhachHang().getMaKH());
+            ps.setString(3, maBan);
             ps.setDate(4, java.sql.Date.valueOf(banDat.getNgayDat()));
             ps.setTime(5, java.sql.Time.valueOf(banDat.getGioDat()));
             ps.setInt(6, banDat.getSoLuongKhach());
             ps.setDouble(7, banDat.getTienCoc());
             ps.setString(8, banDat.getTrangThai());
             ps.setString(9, banDat.getGhiChu());
+            ps.setTime(10, banDat.getGioCheckIn() != null
+                    ? Time.valueOf(banDat.getGioCheckIn())
+                    : null);
 
             n = ps.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("Lỗi khi thêm đặt bàn: " + e.getMessage());
-            throw new SQLException("Lỗi CSDL khi thêm đặt bàn: " + e.getMessage());
         }
 
         return n > 0;
     }
+
+    public boolean addBanDatTrucTiep(BanDat banDat) throws SQLException {
+        Connection con = ConnectDB.getConnection();
+
+        String sql = "INSERT INTO BANDAT " +
+                "(maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu, gioCheckIn) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, banDat.getMaDatBan());
+            ps.setString(2, banDat.getKhachHang().getMaKH());
+            ps.setString(3, banDat.getBan().getMaBan());
+            ps.setDate(4, Date.valueOf(banDat.getNgayDat()));
+            ps.setTime(5, Time.valueOf(banDat.getGioDat()));
+            ps.setInt(6, banDat.getSoLuongKhach());
+            ps.setDouble(7, banDat.getTienCoc());
+            ps.setString(8, banDat.getTrangThai());
+            ps.setString(9, banDat.getGhiChu());
+            ps.setTime(10, Time.valueOf(banDat.getGioCheckIn()));  // ⭐ BẮT BUỘC có
+
+            return ps.executeUpdate() > 0;
+        }
+    }
+
 
 
    
@@ -311,6 +350,87 @@ public class BanDat_DAO {
  
   
     }
+    public boolean updateGioCheckIn(String maDatBan, LocalTime gioCheckIn) {
+        Connection con = ConnectDB.getConnection();
+        String sql = "UPDATE BANDAT SET gioCheckIn = ? WHERE maDatBan = ?";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            if (gioCheckIn != null)
+                ps.setTime(1, Time.valueOf(gioCheckIn));
+            else
+                ps.setNull(1, Types.TIME);
+
+            ps.setString(2, maDatBan);
+
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi update giờ check-in: " + e.getMessage());
+            return false;
+        }
+    }
+    public BanDat getBanDatByMaBan(String maBan) {
+        Connection con = ConnectDB.getConnection();
+        BanDat banDat = null;
+
+        String sql =
+            "SELECT * FROM BANDAT " +
+            "WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    banDat = createBanDatFromResultSet(rs);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return banDat;
+    }
+
+    public LocalTime getGioCheckInTheoBan(String maBan) {
+        Connection con = ConnectDB.getConnection();
+        String sql =
+            "SELECT gioCheckIn FROM BANDAT " +
+            "WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Time t = rs.getTime("gioCheckIn");
+                return t != null ? t.toLocalTime() : null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    public BanDat getBanDatDangSuDung(String maBan) {
+        Connection con = ConnectDB.getConnection();
+        BanDat banDat = null;
+
+        String sql = "SELECT * FROM BANDAT WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    banDat = createBanDatFromResultSet(rs);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return banDat;
+    }
+
+ 
+
+
 
 
 }

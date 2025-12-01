@@ -30,20 +30,20 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.awt.print.PageFormat;
+import java.awt.print.Printable;
+import java.awt.print.PrinterException;
+import java.awt.print.PrinterJob;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
-//Import các lớp Apache PDFBox (Thay vì iText)
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.font.PDType0Font; // Quan trọng cho tiếng Việt
-import org.apache.pdfbox.pdmodel.font.PDType1Font; // Font cơ bản
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts; // Thêm import này
+
 
 import java.io.File;
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 
@@ -76,17 +76,20 @@ public class ThanhToan_Gui extends JPanel {
     private String maBan;
     private NhanVien nhanVienHienTai;
     private String maHoaDon;
+    private LocalTime gioVao;
+    private LocalTime gioRa;
     
-    
-    public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2, String maBan, NhanVien nhanVien) {
+    public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2, String maBan, NhanVien nhanVien, LocalTime gioVao) {
     	this.maHoaDon = new HoaDon_DAO().layMaHDTiepTheo();
-    	this.gioHangXacNhan = gioHangXacNhan;
-        this.bangGia = bangGia;
+    	this.gioHangXacNhan = new LinkedHashMap<>(gioHangXacNhan);
+    	this.bangGia = new LinkedHashMap<>(bangGia);
         this.tongTienHoaDonBanDau = tongTienHoaDon;
         this.tongTienSauGiamGia = tongTienHoaDon; 
         this.tienCoc = tienCoc2;
         this.maBan = maBan;
         this.nhanVienHienTai = nhanVien;
+        this.gioVao = gioVao;             
+        this.gioRa = LocalTime.now();     
         dinhDangTien = NumberFormat.getInstance(new Locale("vi", "VN"));
 
         setLayout(new BorderLayout());
@@ -361,9 +364,11 @@ public class ThanhToan_Gui extends JPanel {
         pnlThongTin.add(new JLabel("Mã HĐ: " + maHoaDon));
         pnlThongTin.add(new JLabel("Thu ngân: " + nhanVienHienTai.getHoTen()));
         pnlThongTin.add(new JLabel("Bàn: "+ maBan));
-        pnlThongTin.add(new JLabel("Ngày: " + new java.util.Date().toLocaleString().split(" ")[0]));
-        pnlThongTin.add(new JLabel("Giờ vào: 10:00"));
-        pnlThongTin.add(new JLabel("Giờ ra: 10:45"));
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        pnlThongTin.add(new JLabel("Ngày: " + LocalDate.now().format(df)));
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("HH:mm");
+        pnlThongTin.add(new JLabel("Giờ vào: " + gioVao.format(f)));
+        pnlThongTin.add(new JLabel("Giờ ra: " + gioRa.format(f)));
         pnlCenter.add(pnlThongTin);
         pnlCenter.add(Box.createVerticalStrut(10));
 
@@ -416,7 +421,11 @@ public class ThanhToan_Gui extends JPanel {
         JButton btnXacNhan = new JButton("Xác nhận và in hóa đơn");
         btnXacNhan.setBackground(new Color(40, 167, 69));
         btnXacNhan.setForeground(Color.WHITE);
-        btnXacNhan.addActionListener(e -> inHoaDon()); 
+        btnXacNhan.addActionListener(e -> {
+        	this.gioRa = LocalTime.now(); 
+        	inHoaDonTrucTiep(); //in máy in
+            inHoaDon();       // lưu DB (giữ nguyên của bạn)
+        });
 
         pnlNut.add(btnHuy);
         pnlNut.add(btnXacNhan);
@@ -622,25 +631,18 @@ public class ThanhToan_Gui extends JPanel {
             return;
         }
 
-        // -------------------------------------------------------------------
-        // 2. LƯU HÓA ĐƠN XUỐNG DATABASE (phần bạn yêu cầu thêm)
-        // -------------------------------------------------------------------
+        // 2. Lưu hóa đơn xuống DB
         try {
             HoaDon_DAO hdDAO = new HoaDon_DAO();
             CTHoaDon_DAO ctDAO = new CTHoaDon_DAO();
             MonAn_DAO monDAO = new MonAn_DAO();
 
-            // Tạo mã hóa đơn
             String maHD = hdDAO.layMaHDTiepTheo();
             this.maHoaDon = maHD;
             HoaDon hd = new HoaDon(maHD);
 
             hd.setNgayLap(LocalDateTime.now());
-
-            // TODO: thay bằng nhân viên đang đăng nhập thật
             hd.setNhanVien(nhanVienHienTai);
-
-            // TODO: thay bằng mã bàn thật
             hd.setBan(new Ban(maBan));
             hd.setBanDat(null);
             hd.setKhuyenMai(null);
@@ -653,7 +655,6 @@ public class ThanhToan_Gui extends JPanel {
                 String tenMon = item.getKey();
                 int soLuong = item.getValue();
 
-                // Lấy món chính xác từ DB
                 MonAn mon = monDAO.getMonAnTheoTen(tenMon);
 
                 if (mon == null) {
@@ -664,14 +665,12 @@ public class ThanhToan_Gui extends JPanel {
                     return;
                 }
 
-                // Tạo chi tiết hóa đơn đúng dạng entity
                 CT_HoaDon ct = new CT_HoaDon(hd, mon, soLuong);
                 dsCT.add(ct);
             }
 
             hd.setDanhSachChiTietHoaDon(dsCT);
 
-            // Lưu xuống DB
             boolean ok = hdDAO.themHoaDon(hd);
 
             if (!ok) {
@@ -688,315 +687,35 @@ public class ThanhToan_Gui extends JPanel {
                     "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
                     "Lỗi",
                     JOptionPane.ERROR_MESSAGE);
-            return; // Ngừng lại, không in PDF nếu lưu thất bại
+            return;
         }
 
-        // -------------------------------------------------------------------
-        // 3. TOÀN BỘ PHẦN PDF GIỮ NGUYÊN – KHÔNG SỬA ĐỔI NHƯ BẠN YÊU CẦU
-        // -------------------------------------------------------------------
+        // 3. Thông báo đơn giản (KHÔNG PDF)
+        String thongBao = String.format(
+                "Thanh toán thành công!\n\n" +
+                "Tổng tiền HĐ: %s VND\n" +
+                "Giảm giá: %s VND\n" +
+                "Phải thu: %s VND\n" +
+                "Hình thức: %s\n" +
+                "Khách đưa: %s VND\n" +
+                "Tiền thừa: %s VND\n",
+                dinhDangTien.format(tongTienHoaDonBanDau),
+                dinhDangTien.format(giamGia),
+                dinhDangTien.format(tongTienSauGiamGia),
+                hinhThucThanhToan,
+                dinhDangTien.format(soTienKhachDua),
+                dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia)
+        );
 
-        // GỌI HÀM TẠO PDF
-        String duongDanPDF = taoHoaDonPDF(this.gioHangXacNhan, this.tongTienSauGiamGia);
+        JOptionPane.showMessageDialog(this, thongBao, "Hóa đơn", JOptionPane.INFORMATION_MESSAGE);
 
-        String thongBao;
-
-        if (duongDanPDF != null) {
-            thongBao = String.format(
-                    "Thanh toán thành công!\n" +
-                    "Tổng tiền HĐ: %s VND\n" +
-                    "Giảm giá: %s VND\n" +
-                    "Phải thu: %s VND\n" +
-                    "Hình thức: %s\n" +
-                    "Khách đưa: %s VND\n" +
-                    "Tiền thừa: %s VND\n\n" +
-                    "Đã xuất hóa đơn tại:\n%s",
-                    dinhDangTien.format(tongTienHoaDonBanDau),
-                    dinhDangTien.format(giamGia),
-                    dinhDangTien.format(tongTienSauGiamGia),
-                    hinhThucThanhToan,
-                    dinhDangTien.format(soTienKhachDua),
-                    dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia),
-                    duongDanPDF
-            );
-        } else {
-            thongBao = String.format(
-                    "Thanh toán thành công!\n" +
-                    "Tổng tiền HĐ: %s VND\n" +
-                    "Lỗi: Không thể xuất file PDF.",
-                    dinhDangTien.format(tongTienSauGiamGia)
-            );
-        }
-
-        JOptionPane.showMessageDialog(this, thongBao, "In Hóa Đơn", JOptionPane.INFORMATION_MESSAGE);
-
-        // ĐÓNG CỬA SỔ
+        // Đóng cửa sổ
         ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
     }
 
+
     
- // Trong lớp ThanhToan_Gui.java
 
-    /**
-     * Tải font hỗ trợ Tiếng Việt (Unicode) cho PDFBox.
-     * Hàm này tìm font trong hệ thống Windows hoặc từ Classpath.
-     * @return PDType0Font
-     * @throws Exception Nếu không tìm thấy font
-     */
- // Trong lớp ThanhToan_Gui.java
-
-    /**
-     * Tải font hỗ trợ Tiếng Việt (Unicode) cho PDFBox.
-     * @return PDType0Font
-     * @throws Exception Nếu không tìm thấy font
-     */
- // Trong lớp ThanhToan_Gui.java
-
-    /**
-     * Tải font hỗ trợ Tiếng Việt (Unicode) cho PDFBox.
-     * @return PDType0Font
-     * @throws Exception Nếu không tìm thấy font
-     */
-    private PDType0Font taiFontTiengViet(PDDocument document) throws Exception {
-        try {
-            // Ưu tiên 1: Tải font từ thư mục hệ thống (Windows)
-            return PDType0Font.load(document, new File("c:/windows/fonts/arial.ttf"));
-        } catch (Exception e_win) {
-            try {
-                // Ưu tiên 2: Tải font từ Classpath (nếu bạn đã thêm file font vào dự án)
-                // Đặt file 'Arial.ttf' vào thư mục 'src/main/resources/fonts/'
-                InputStream fontStream = this.getClass().getResourceAsStream("/fonts/Arial.ttf");
-                if (fontStream != null) {
-                    return PDType0Font.load(document, fontStream);
-                } else {
-                    throw new Exception("Không tìm thấy font 'Arial.ttf' trong Classpath (/fonts/Arial.ttf).");
-                }
-            } catch (Exception e_res) {
-                System.err.println("Không thể tải font hệ thống lẫn font trong Classpath.");
-                throw new Exception("Không tìm thấy font hỗ trợ tiếng Việt (Arial.ttf).");
-            }
-        }
-    }
-
-    /**
-     * Căn lề phải một đoạn văn bản tại tọa độ X (so với lề trái).
-     */
-    private void veChuoiCanPhai(PDPageContentStream contentStream, PDType0Font font, float fontSize, float x, float y, String text) throws Exception {
-        float textWidth = (font.getStringWidth(text) / 1000f) * fontSize;
-        contentStream.newLineAtOffset(x - textWidth, y);
-        contentStream.showText(text);
-    }
-
-    /**
-     * Căn lề giữa một đoạn văn bản.
-     */
-    private void veChuoiCanGiua(PDPageContentStream contentStream, PDType0Font font, float fontSize, float y, float pageLeft, float pageRight, String text) throws Exception {
-        float pageWidth = pageRight - pageLeft;
-        float textWidth = (font.getStringWidth(text) / 1000f) * fontSize;
-        float x = pageLeft + (pageWidth - textWidth) / 2f;
-        contentStream.newLineAtOffset(x, y);
-        contentStream.showText(text);
-    }
-
-    /**
-     * Tạo và lưu hóa đơn dưới dạng file PDF (sử dụng Apache PDFBox) - Đã sửa lỗi.
-     */
- // Trong ThanhToan_Gui.java
-
-    /**
-     * Tạo và lưu hóa đơn dưới dạng file PDF (sử dụng Apache PDFBox) - Đã sửa lỗi cột.
-     */
-    private String taoHoaDonPDF(Map<String, Integer> gioHang, double tongTien) {
-        
-        // 1. Tạo tên file và đường dẫn
-        String thoiGian = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String tenFile = "HoaDon_PDFBox_" + thoiGian + ".pdf";
-        String duongDanThuMuc = System.getProperty("user.home") + File.separator + "Desktop" + File.separator + "HoaDon_QLNH";
-        
-        File dir = new File(duongDanThuMuc);
-        if (!dir.exists()) dir.mkdirs();
-        String duongDanDayDu = duongDanThuMuc + File.separator + tenFile;
-
-        // Sử dụng try-with-resources
-        try (PDDocument document = new PDDocument()) {
-            PDPage page = new PDPage();
-            document.addPage(page);
-            
-            PDType0Font fontBold = taiFontTiengViet(document);
-            PDType0Font fontNormal = taiFontTiengViet(document);
-
-            PDPageContentStream contentStream = new PDPageContentStream(document, page);
-
-            // Kích thước trang và lề (giả định trang A4)
-            float margin = 50;
-            float y = 750; // Vị trí bắt đầu (từ trên xuống)
-            float leftMargin = margin;
-            float rightMargin = page.getMediaBox().getWidth() - margin; // ~545
-
-            // Định nghĩa các vị trí cột (tính từ lề trái)
-            float colTenMon = leftMargin;
-            float colSL = 300;
-            float colDG = 350;
-            float colKM = 420;
-            float colThanhTien = rightMargin; // Căn lề phải
-
-            // 2. Tiêu đề
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 18);
-            veChuoiCanGiua(contentStream, fontBold, 18, y, leftMargin, rightMargin, "HÓA ĐƠN THANH TOÁN");
-            contentStream.endText();
-            y -= 25;
-
-            // 3. Tên Nhà hàng
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 14);
-            veChuoiCanGiua(contentStream, fontBold, 14, y, leftMargin, rightMargin, "Nhà Hàng TripleND");
-            contentStream.endText();
-            y -= 30;
-
-            // 4. Thông tin chung
-            contentStream.beginText();
-            contentStream.setFont(fontNormal, 11);
-            contentStream.newLineAtOffset(leftMargin, y);
-            
-            String maHD = "HD" + thoiGian; 
-            String thuNgan = "Nhân viên Demo"; 
-            
-            contentStream.showText("Số: " + maHD);
-            y -= 15;
-            contentStream.newLineAtOffset(0, -15);
-            contentStream.showText("Ngày: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
-            y -= 15;
-            contentStream.newLineAtOffset(0, -15);
-            contentStream.showText("Bàn: B001"); // (Cần truyền maBanHienTai vào đây nếu có)
-            y -= 15;
-            contentStream.newLineAtOffset(0, -15);
-            contentStream.showText("Thu ngân: " + thuNgan);
-            contentStream.endText();
-            y -= 25;
-
-            // 5. Vẽ Bảng
-            // Vẽ đường kẻ ngang (Header)
-            contentStream.setStrokingColor(Color.BLACK);
-            contentStream.setLineWidth(1f);
-            contentStream.moveTo(leftMargin, y);
-            contentStream.lineTo(rightMargin, y);
-            contentStream.stroke();
-            y -= 20;
-
-            // Tiêu đề bảng
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 11);
-            contentStream.newLineAtOffset(colTenMon, y);
-            contentStream.showText("Tên món");
-            
-            contentStream.newLineAtOffset(colSL - colTenMon, 0); 
-            contentStream.showText("SL");
-            
-            contentStream.newLineAtOffset(colDG - colSL, 0); 
-            contentStream.showText("ĐG");
-            
-            contentStream.newLineAtOffset(colKM - colDG, 0); 
-            contentStream.showText("% KM");
-            contentStream.endText(); // Kết thúc phần căn trái/giữa
-
-            // 💡 SỬA: Vẽ cột "Thành tiền" (căn phải) trong một khối text riêng
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 11);
-            veChuoiCanPhai(contentStream, fontBold, 11, colThanhTien, y, "Thành tiền");
-            contentStream.endText();
-            y -= 8;
-
-            // Vẽ đường kẻ dưới (Header)
-            contentStream.moveTo(leftMargin, y);
-            contentStream.lineTo(rightMargin, y);
-            contentStream.stroke();
-            y -= 20;
-
-            // Thêm chi tiết món ăn
-            contentStream.setFont(fontNormal, 11);
-            
-            for (Map.Entry<String, Integer> entry : gioHang.entrySet()) {
-                String tenMon = entry.getKey();
-                int sl = entry.getValue();
-                int gia = bangGia.getOrDefault(tenMon, 0);
-                long thanhTien = (long)gia * sl;
-                String phanTramKM = ""; // (Logic KM của bạn nếu có)
-
-                // Vẽ các cột căn trái/giữa
-                contentStream.beginText();
-                contentStream.newLineAtOffset(colTenMon, y);
-                contentStream.showText(tenMon);
-                contentStream.newLineAtOffset(colSL - colTenMon, 0);
-                contentStream.showText(String.valueOf(sl));
-                contentStream.newLineAtOffset(colDG - colSL, 0);
-                contentStream.showText(dinhDangTien.format(gia));
-                contentStream.newLineAtOffset(colKM - colDG, 0);
-                contentStream.showText(phanTramKM);
-                contentStream.endText();
-                
-                // 💡 SỬA: Vẽ cột "Thành tiền" (căn phải) trong khối text riêng
-                contentStream.beginText();
-                veChuoiCanPhai(contentStream, fontNormal, 11, colThanhTien, y, dinhDangTien.format(thanhTien));
-                contentStream.endText();
-                
-                y -= 15;
-                
-                // Vẽ đường chấm chấm
-                contentStream.setLineDashPattern(new float[]{3, 3}, 0);
-                contentStream.moveTo(leftMargin, y);
-                contentStream.lineTo(rightMargin, y);
-                contentStream.stroke();
-                contentStream.setLineDashPattern(new float[]{}, 0); // Reset
-                
-                y -= 15;
-            }
-
-            // 6. Thêm tổng tiền (Sửa lại để truyền đúng tổng tiền)
-            contentStream.setFont(fontBold, 14);
-            contentStream.beginText();
-            String tongThanhToan = "Tổng thanh toán: " + dinhDangTien.format(tongTien) + "đ";
-            veChuoiCanPhai(contentStream, fontBold, 14, rightMargin, y, tongThanhToan);
-            contentStream.endText();
-            y -= 20;
-
-            contentStream.setFont(fontNormal, 11);
-            contentStream.beginText();
-            veChuoiCanPhai(contentStream, fontNormal, 11, rightMargin, y, "Tiền " + hinhThucThanhToan + ": " + dinhDangTien.format(soTienKhachDua) + "đ");
-            contentStream.endText();
-            y -= 20;
-            
-            double tienThua = (soTienKhachDua > tongTien) ? (soTienKhachDua - tongTien) : 0;
-            contentStream.setFont(fontBold, 12);
-            contentStream.beginText();
-            veChuoiCanPhai(contentStream, fontBold, 12, rightMargin, y, "Trả lại khách: " + dinhDangTien.format(tienThua) + "đ");
-            contentStream.endText();
-            y -= 30;
-
-            // 7. Footer
-            y -= 30;
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 12);
-            veChuoiCanGiua(contentStream, fontBold, 12, y, leftMargin, rightMargin, "Trân trọng cảm ơn!");
-            contentStream.endText();
-            
-            y -= 20;
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 12);
-            veChuoiCanGiua(contentStream, fontBold, 12, y, leftMargin, rightMargin, ".");
-            contentStream.endText();
-
-            contentStream.close();
-            
-            document.save(duongDanDayDu);
-            
-            return duongDanDayDu; // Trả về đường dẫn thành công
-
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Lỗi khi tạo file PDF: " + e.getMessage(), "Lỗi PDF", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
-            return null;
-        }
-    }
     // cập nhật giao  diện
   
     private void hienThiHoaDon() {
@@ -1019,6 +738,129 @@ public class ThanhToan_Gui extends JPanel {
         
         capNhatTrangThaiNutThanhToan();
     }
+ // ===============================================
+ // IN HÓA ĐƠN TRỰC TIẾP RA MÁY IN (POS BILL)
+ // ===============================================
+
+
+    private void inHoaDonTrucTiep() {
+        PrinterJob job = PrinterJob.getPrinterJob();
+
+        job.setPrintable(new Printable() {
+
+            @Override
+            public int print(Graphics g, PageFormat pf, int pageIndex) throws PrinterException {
+                if (pageIndex > 0) return NO_SUCH_PAGE;
+
+                Graphics2D g2 = (Graphics2D) g;
+                g2.translate(pf.getImageableX(), pf.getImageableY());
+                g2.setFont(new Font("Arial", Font.PLAIN, 11));
+
+                int y = 20;
+
+                // ====== TIÊU ĐỀ ======
+                g2.setFont(new Font("Arial", Font.BOLD, 16));
+                g2.drawString("HOÁ ĐƠN THANH TOÁN", 140, y);
+                y += 25;
+
+                g2.setFont(new Font("Arial", Font.PLAIN, 11));
+                g2.drawString("Mã HĐ: " + maHoaDon, 10, y);
+                g2.drawString("Thu ngân: " + nhanVienHienTai.getHoTen(), 200, y);
+                y += 15;
+
+                g2.drawString("Bàn: " + maBan, 10, y);
+                g2.drawString("Ngày: " + java.time.LocalTime.now().withNano(0), 200, y);
+                y += 15;
+
+                DateTimeFormatter f = DateTimeFormatter.ofPattern("HH:mm");
+
+                g2.drawString("Giờ vào: " + gioVao.format(f), 10, y);
+                g2.drawString("Giờ ra: " + gioRa.format(f), 200, y);
+                y += 20;
+
+                g2.drawLine(10, y, 380, y);
+                y += 12;
+
+                // ====== HEADER BẢNG ======
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                g2.drawString("STT", 10, y);
+                g2.drawString("Tên món", 45, y);
+                g2.drawString("SL", 180, y);
+                g2.drawString("Đơn giá", 215, y);
+                g2.drawString("Thành tiền", 300, y);
+                y += 12;
+
+                g2.drawLine(10, y, 380, y);
+                y += 14;
+
+                // ====== IN DANH SÁCH MÓN ======
+                g2.setFont(new Font("Arial", Font.PLAIN, 11));
+
+                int stt = 1;
+                for (Map.Entry<String, Integer> e : gioHangXacNhan.entrySet()) {
+
+                    String ten = e.getKey();
+                    int sl = e.getValue();
+                    long gia = bangGia.get(ten);
+                    long thanhTien = gia * sl;
+
+                    g2.drawString(String.valueOf(stt++), 10, y);
+                    g2.drawString(ten, 45, y);
+                    g2.drawString(String.valueOf(sl), 185, y);
+                    g2.drawString(dinhDangTien.format(gia), 225, y);
+                    g2.drawString(dinhDangTien.format(thanhTien), 310, y);
+
+                    y += 18;
+                }
+
+                g2.drawLine(10, y, 380, y);
+                y += 20;
+
+                // ====== TỔNG KẾT ======
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                g2.drawString("Thành tiền:", 10, y);
+                g2.drawString(dinhDangTien.format(tongTienHoaDonBanDau), 300, y);
+                y += 18;
+
+                g2.drawString("Giảm giá:", 10, y);
+                g2.drawString(dinhDangTien.format(giamGia), 300, y);
+                y += 18;
+
+                g2.drawString("Trừ cọc:", 10, y);
+                g2.drawString(dinhDangTien.format(tienCoc), 300, y);
+                y += 18;
+
+                g2.drawString("Tổng tiền:", 10, y);
+                g2.drawString(dinhDangTien.format(tongTienSauGiamGia), 300, y);
+                y += 22;
+
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                g2.drawString("Khách đưa:", 10, y);
+                g2.drawString(dinhDangTien.format(soTienKhachDua), 300, y);
+                y += 18;
+
+                g2.drawString("Tiền thừa:", 10, y);
+                g2.drawString(dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia), 300, y);
+                y += 25;
+
+                // ====== CHÂN BILL ======
+                g2.setFont(new Font("Arial", Font.ITALIC, 12));
+                g2.drawString("=== Cảm ơn quý khách! ===", 110, y);
+
+                return PAGE_EXISTS;
+            }
+        });
+
+        if (job.printDialog()) {
+            try { job.print(); }
+            catch (PrinterException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Lỗi in hóa đơn: " + ex.getMessage());
+            }
+        }
+    }
+
+
 
     private void capNhatTrangThaiNutThanhToan() {
         btnTienMat.setBackground(new Color(230, 230, 230));
@@ -1092,29 +934,4 @@ public class ThanhToan_Gui extends JPanel {
              System.err.println("Lỗi QR Code: Vui lòng kiểm tra đã thêm core.jar và javase.jar chưa.");
         }
     }
-    
-    
-    // --- Phương thức main (để chạy thử) ---
-//    public static void main(String[] args) {
-//        JFrame f = new JFrame("Thanh toán");
-//        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        f.setSize(1000, 750);
-//        f.setLocationRelativeTo(null);
-//        
-//        // Dữ liệu giả lập
-//        Map<String, Integer> gioHangXacNhanTest = new LinkedHashMap<>();
-//        gioHangXacNhanTest.put("Bò kho", 2);
-//        gioHangXacNhanTest.put("Bánh mì", 4);
-//        gioHangXacNhanTest.put("Bánh mì thêm", 2);
-//        
-//        Map<String, Integer> bangGiaTest = new LinkedHashMap<>();
-//        bangGiaTest.put("Bò kho", 100000);
-//        bangGiaTest.put("Bánh mì", 80000);
-//        bangGiaTest.put("Bánh mì thêm", 7000); 
-//        
-//        double tongTienTest = (2*100000) + (4*80000) + (2*7000); // 534,000 VND
-//        
-//        f.setContentPane(new ThanhToan_Gui(gioHangXacNhanTest, bangGiaTest, tongTienTest));
-//        f.setVisible(true);
-//    }
 }
