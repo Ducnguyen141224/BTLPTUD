@@ -1,3 +1,4 @@
+
 package gui;
 
 import javax.swing.*;
@@ -8,6 +9,7 @@ import java.awt.event.*;
 import java.net.URL; 
 import java.sql.SQLException; 
 import java.text.NumberFormat;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -51,11 +53,18 @@ public class GoiMon_GUI extends JPanel {
     private List<MonAn> danhSachMonAn; 
     private List<MonAn> danhSachMonAnHienThi;
     private String maBanHienTai;
+    private LocalTime gioVao;
     private BanDat_DAO banDatDAO = new BanDat_DAO();
     private static final String[] COT_DANG_GOI = {"STT", "Tên món", "SL", "Giá", "Thao tác"};
     private static final String[] COT_DA_GOI = {"STT", "Tên món", "SL", "Giá"};
     public GoiMon_GUI(String maBan) throws SQLException {
         this.maBanHienTai = maBan; 
+        BanDat bd = banDatDAO.getBanDatDangSuDung(maBan); // Bạn có thể tạo hàm này
+        if (bd != null && bd.getGioCheckIn() != null) {
+            this.gioVao = bd.getGioCheckIn();
+        } else {
+            this.gioVao = LocalTime.now();
+        }
         
         dinhDangTien = NumberFormat.getInstance(new Locale("vi", "VN"));
 
@@ -382,7 +391,8 @@ public class GoiMon_GUI extends JPanel {
                 tongTienHoaDon,
                 tienCoc,
                 maBanHienTai,
-                DangNhap_GUI.taiKhoanDangNhap.getNhanVien()
+                DangNhap_GUI.taiKhoanDangNhap.getNhanVien(),
+                this.gioVao
             );
             thanhToanFrame.setContentPane(thanhToanPanel);
             

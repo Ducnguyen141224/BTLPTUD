@@ -106,6 +106,7 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
             pnlContent.add(pnlDanhSach, "PANEL_DS_DAT_BAN");
             
             // Thêm các panel còn lại
+            pnlContent.add(new Dashboard_GUI(), "Dashboard");
             pnlContent.add(new MonAn_GUI(), "Quản lý món ăn");
             pnlContent.add(new QuanLyKhachHang_GUI(), "Quản lý KH");
             pnlContent.add(new NhanVien_GUI(), "Quản lý nhân viên");

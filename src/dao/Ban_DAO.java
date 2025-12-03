@@ -186,6 +186,21 @@ public class Ban_DAO {
         }
         return trangThai;
     }
+    public boolean capNhatTrangThaiBan(String maBan, String trangThai) {
+        Connection con = ConnectDB.getConnection();
+        String sql = "UPDATE BAN SET trangThai = ? WHERE maBan = ?";
+        
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, trangThai);
+            ps.setString(2, maBan);
+            
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi cập nhật trạng thái bàn: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
    
 
 }

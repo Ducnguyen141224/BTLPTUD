@@ -512,26 +512,33 @@ public class BanDat_GUI extends JPanel {
     }
     
     private BanDat validateAndCreateBanDat(String maDatBanHienTai) throws Exception {
+
+        // --- 1. Validation Cơ bản ---
         if (txtTenKhachHang.getText().trim().isEmpty() || 
             txtSoDienThoai.getText().trim().isEmpty() ||
             txtSoNguoi.getText().trim().isEmpty() ||
             dcNgayDat.getDate() == null) {
             throw new Exception("Vui lòng điền đầy đủ thông tin bắt buộc (*)");
         }
-        
+
+        // --- 2. Validation SĐT ---
         String sdt = txtSoDienThoai.getText().trim();
         if (!sdt.matches("^0\\d{9}$")) {
             throw new Exception("Số điện thoại không hợp lệ! (10 số, bắt đầu bằng 0)");
         }
-        
+
+        // --- 3. Validation Số người ---
         int soNguoi;
         try {
             soNguoi = Integer.parseInt(txtSoNguoi.getText().trim());
-            if (soNguoi <= 0) throw new Exception("Số lượng khách phải lớn hơn 0.");
+            if (soNguoi <= 0) {
+                throw new Exception("Số lượng khách phải lớn hơn 0.");
+            }
         } catch (NumberFormatException e) {
             throw new Exception("Số lượng khách không hợp lệ!");
         }
-        
+
+        // --- 4. Validation Tiền cọc ---
         double tienCoc = 0;
         try {
             String tienCocStr = txtTienCoc.getText().trim().replaceAll("[^0-9]", "");
@@ -542,40 +549,47 @@ public class BanDat_GUI extends JPanel {
         } catch (NumberFormatException e) {
             throw new Exception("Tiền cọc không hợp lệ!");
         }
-        
+
+        // --- 5. Validation Bàn được chọn ---
         if (banDangChon == null) {
             throw new Exception("Vui lòng chọn bàn từ danh sách!");
         }
-        
+
         Ban banDuocChon = banDAO.getBanById(banDangChon.getMaBan());
         LocalDate ngayDat = dcNgayDat.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
         LocalTime gioDat = LocalTime.parse(cboGioDat.getSelectedItem().toString());
         String trangThai = "Đã đặt";
         String ghiChu = txtGhiChu.getText();
-        
+
+        // --- 6. Chuẩn bị Khách hàng ---
         String tenKH = txtTenKhachHang.getText().trim();
         KhachHang khachHang = khachHangDAO.timKhachHangTheoSDT(sdt);
-        
-        if(khachHang == null) {
+
+        if (khachHang == null) {
             khachHang = new KhachHang(null, tenKH, sdt, "", false);
         } else {
             khachHang.setHoTenKH(tenKH);
         }
 
+        // --- 7. Tạo đối tượng BanDat ---
+
+        // ⭐⭐ QUAN TRỌNG: thêm tham số giờCheckIn = null (để đồng nhất với constructor mới)
         BanDat banDat = new BanDat(
-            maDatBanHienTai, 
-            khachHang, 
-            banDuocChon, 
-            ngayDat, 
-            gioDat, 
-            soNguoi, 
-            tienCoc, 
-            trangThai, 
-            ghiChu
+            maDatBanHienTai,
+            khachHang,
+            banDuocChon,
+            ngayDat,
+            gioDat,
+            soNguoi,
+            tienCoc,
+            trangThai,
+            ghiChu,
+            null   // <-- ⭐ GIỜ CHECK IN => LUÔN NULL KHI ĐẶT TRƯỚC
         );
 
         return banDat;
     }
+
     
     private void lamMoiForm() {
         txtMaDatBan.setText(banDatDAO.generateNewMaDatBan());
@@ -599,36 +613,103 @@ public class BanDat_GUI extends JPanel {
     
  // Thay thế hàm moGiaoDienGoiMon() cũ bằng hàm này
     private void moGiaoDienGoiMon() {
+
         // 1. Kiểm tra đã chọn bàn chưa
         if (banDangChon == null) {
-            JOptionPane.showMessageDialog(this, 
-                "Vui lòng chọn một bàn để gọi món!", 
-                "Chưa chọn bàn", 
-                JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Vui lòng chọn một bàn trước khi gọi món!",
+                    "Chưa chọn bàn",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
+
         String maBan = banDangChon.getMaBan();
         String trangThai = banDangChon.getTrangThai();
 
-        // 2. Xử lý logic trạng thái bàn
-        if ("Trống".equals(trangThai)) {
-            int confirm = JOptionPane.showConfirmDialog(this, 
-                "Bàn " + maBan + " đang trống. Bạn có muốn mở bàn và gọi món không?", 
-                "Xác nhận mở bàn", 
-                JOptionPane.YES_NO_OPTION);
-            
-            if (confirm == JOptionPane.YES_OPTION) {
-                // Cập nhật trạng thái sang "Đang sử dụng"
-                capNhatTrangThaiBan(maBan, "Đang sử dụng");
-                // Mở cửa sổ gọi món
-                moCuaSoGoiMon(maBan);
+        try {
+
+            // ⭐ LẤY THÔNG TIN ĐẶT BÀN ĐANG SỬ DỤNG (CÓ GIỜ CHECKIN)
+            BanDat banDatHienTai = banDatDAO.getBanDatDangSuDung(maBan);
+
+            if (banDatHienTai != null) {
+                System.out.println("--- BÀN ĐANG SỬ DỤNG ---");
+                System.out.println("Mã đặt bàn: " + banDatHienTai.getMaDatBan());
+                System.out.println("Giờ check-in: " + banDatHienTai.getGioCheckIn());
             }
-        } else {
-            // Với bàn "Đã đặt" hoặc "Đang sử dụng" thì mở luôn không cần hỏi
-            moCuaSoGoiMon(maBan);
+
+            // ============================
+            // ⭐ TRƯỜNG HỢP BÀN TRỐNG
+            // ============================
+            if ("Trống".equals(trangThai)) {
+
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "Bàn " + maBan + " đang trống.\n"
+                        + "Bạn có muốn mở bàn và bắt đầu gọi món không?",
+                        "Xác nhận mở bàn",
+                        JOptionPane.YES_NO_OPTION);
+
+                if (confirm == JOptionPane.YES_OPTION) {
+
+                    // 1. Tạo mã đặt bàn mới
+                    String maDatBanMoi = banDatDAO.generateNewMaDatBan();
+
+                    // 2. Tạo khách hàng mặc định
+                    KhachHang kh = new KhachHang(null, "Khách lẻ", "0000000000", "", false);
+                    kh = khachHangDAO.themHoacLayKhachHang(kh);
+
+                    // 3. Chuẩn bị đối tượng bàn
+                    Ban banObj = banDAO.getBanById(maBan);
+                    LocalTime gioVao = LocalTime.now();
+
+                    // 4. Tạo bản ghi đặt bàn TRỰC TIẾP (không kiểm tra giờ)
+                    BanDat bdMoi = new BanDat(
+                            maDatBanMoi,
+                            kh,
+                            banObj,
+                            LocalDate.now(),
+                            LocalTime.now(),
+                            1,
+                            0,
+                            "Đang sử dụng",
+                            "Khách vào trực tiếp",
+                            gioVao
+                    );
+
+                    // 5. THÊM VÀO DB (KHÔNG KIỂM TRA TRÙNG GIỜ)
+                    banDatDAO.addBanDatTrucTiep(bdMoi);
+
+                    // 6. Cập nhật giờ checkin trong DB
+                    banDatDAO.updateGioCheckIn(maDatBanMoi, gioVao);
+
+                    // 7. Cập nhật trạng thái bàn
+                    capNhatTrangThaiBan(maBan, "Đang sử dụng");
+
+                    // 8. Mở giao diện gọi món
+                    moCuaSoGoiMon(maBan);
+                }
+
+                return;
+            }
+
+            // ============================
+            // ⭐ BÀN ĐÃ ĐẶT hoặc ĐANG SỬ DỤNG
+            // ============================
+            if ("Đã đặt".equals(trangThai) || "Đang sử dụng".equals(trangThai)) {
+                moCuaSoGoiMon(maBan);
+                return;
+            }
+
+            JOptionPane.showMessageDialog(this,
+                    "Không thể gọi món cho bàn có trạng thái: " + trangThai,
+                    "Thông báo",
+                    JOptionPane.WARNING_MESSAGE);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi xử lý gọi món: " + e.getMessage());
         }
     }
+
 
     // Hàm phụ trợ để mở JFrame Gọi Món (Tách ra cho gọn)
     private void moCuaSoGoiMon(String maBan) {
