@@ -16,6 +16,7 @@ import dao.CTHoaDon_DAO;
 import dao.HoaDon_DAO;
 import dao.MonAn_DAO;
 import entity.Ban;
+import entity.BanDat;
 import entity.CT_HoaDon;
 import entity.HoaDon;
 import entity.MonAn;
@@ -619,7 +620,6 @@ public class ThanhToan_Gui extends JPanel {
  // Trong ThanhToan_Gui.java
 
  // Trong ThanhToan_Gui.java
-
     private void inHoaDon() {
 
         // 1. Kiểm tra tiền khách đưa (chỉ áp dụng với Tiền mặt)
@@ -690,7 +690,43 @@ public class ThanhToan_Gui extends JPanel {
             return;
         }
 
-        // 3. Thông báo đơn giản (KHÔNG PDF)
+        // =====================================================
+        // ⭐ 3. CẬP NHẬT TRẠNG THÁI BÀN + RESET GIỜ CHECK-IN
+        // =====================================================
+        try {
+
+            Ban_DAO banDAO = new Ban_DAO();
+            BanDat_DAO bdDAO = new BanDat_DAO();
+
+            // ⭐ 3.1 BÀN → TRỐNG
+            banDAO.capNhatTrangThaiBan(maBan, "Trống");
+
+            // ⭐ 3.2 Lấy đặt bàn đang sử dụng (nếu có)
+            BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
+
+            if (bd != null) {
+
+                // Xóa giờ check-in
+                bdDAO.updateGioCheckIn(bd.getMaDatBan(), null);
+
+                // Chuyển trạng thái đặt bàn
+                bd.setTrangThai("Hoàn thành");
+                bd.setGioCheckIn(null);
+
+                bdDAO.updateBanDat(bd);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                    "Lỗi khi cập nhật trạng thái bàn: " + e.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+
+        // =====================================================
+
+        // 4. Hiển thị thông báo thanh toán
         String thongBao = String.format(
                 "Thanh toán thành công!\n\n" +
                 "Tổng tiền HĐ: %s VND\n" +
@@ -709,9 +745,11 @@ public class ThanhToan_Gui extends JPanel {
 
         JOptionPane.showMessageDialog(this, thongBao, "Hóa đơn", JOptionPane.INFORMATION_MESSAGE);
 
-        // Đóng cửa sổ
+        // 5. Đóng cửa sổ
         ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
     }
+
+
 
 
     

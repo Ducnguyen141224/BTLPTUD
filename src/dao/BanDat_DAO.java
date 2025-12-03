@@ -144,9 +144,13 @@ public class BanDat_DAO {
             ps.setDouble(7, banDat.getTienCoc());
             ps.setString(8, banDat.getTrangThai());
             ps.setString(9, banDat.getGhiChu());
-            ps.setTime(10, banDat.getGioCheckIn() != null
-                    ? Time.valueOf(banDat.getGioCheckIn())
-                    : null);
+            if ("Trống".equalsIgnoreCase(banDat.getTrangThai())) {
+                ps.setNull(10, Types.TIME);
+            } else {
+                ps.setTime(10, 
+                    banDat.getGioCheckIn() != null ? Time.valueOf(banDat.getGioCheckIn()) : null
+                );
+            }
 
             n = ps.executeUpdate();
         }
@@ -171,7 +175,11 @@ public class BanDat_DAO {
             ps.setDouble(7, banDat.getTienCoc());
             ps.setString(8, banDat.getTrangThai());
             ps.setString(9, banDat.getGhiChu());
-            ps.setTime(10, Time.valueOf(banDat.getGioCheckIn()));  // ⭐ BẮT BUỘC có
+            if ("Đang sử dụng".equalsIgnoreCase(banDat.getTrangThai())) {
+                ps.setTime(10, Time.valueOf(banDat.getGioCheckIn()));
+            } else {
+                ps.setNull(10, Types.TIME);
+            }
 
             return ps.executeUpdate() > 0;
         }
@@ -196,8 +204,17 @@ public class BanDat_DAO {
             ps.setDouble(6, banDat.getTienCoc());
             ps.setString(7, banDat.getTrangThai());
             ps.setString(8, banDat.getGhiChu());
-            ps.setString(9, banDat.getMaDatBan()); // WHERE clause
-            
+
+         // Nếu trạng thái = Trống → không có giờ check-in
+         if ("Trống".equalsIgnoreCase(banDat.getTrangThai())) {
+             ps.setNull(10, Types.TIME);
+         } else {
+             ps.setTime(10, 
+                 banDat.getGioCheckIn() != null ? Time.valueOf(banDat.getGioCheckIn()) : null
+             );
+         }
+
+         ps.setString(11, banDat.getMaDatBan());
             n = ps.executeUpdate();
         } catch (SQLException e) {
             System.err.println("Lỗi khi cập nhật đặt bàn: " + e.getMessage());
@@ -427,10 +444,4 @@ public class BanDat_DAO {
         }
         return banDat;
     }
-
- 
-
-
-
-
 }
