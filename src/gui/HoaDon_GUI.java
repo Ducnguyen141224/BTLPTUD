@@ -201,14 +201,14 @@ public class HoaDon_GUI extends JPanel {
     // ADD ROW
     // =====================================================
     private void addRow(HoaDon hd) {
-
+    	double tongtien = hoaDon_DAO.layTongTienTheoMaHD(hd.getMaHoaDon());
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         tableModel.addRow(new Object[]{
                 hd.getMaHoaDon(),
                 (hd.getNhanVien() != null ? hd.getNhanVien().getMaNV() : "N/A"),
                 (hd.getNgayLap() != null ? dtf.format(hd.getNgayLap()) : ""),
-                String.format("%,.0f", hd.tinhTongTien())
+                String.format("%,.0f", tongtien)
         });
     }
 

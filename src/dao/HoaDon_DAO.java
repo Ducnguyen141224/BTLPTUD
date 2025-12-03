@@ -195,4 +195,32 @@ public class HoaDon_DAO {
         }
         return ds;
     }
+ // =========================================================
+ // LẤY TỔNG TIỀN THEO MÃ HÓA ĐƠN
+ // =========================================================
+ /**
+  * Lấy tổng tiền (đã giảm giá) của một hóa đơn cụ thể từ cơ sở dữ liệu.
+  * @param maHD Mã hóa đơn cần truy vấn.
+  * @return Tổng tiền (double) nếu tìm thấy, -1.0 nếu không tìm thấy hoặc có lỗi.
+  */
+ public double layTongTienTheoMaHD(String maHD) {
+     double tongTien = -1.0;
+     String sql = "SELECT tongTien FROM HOADON WHERE maHD = ?";
+
+     try (Connection con = ConnectDB.getConnection();
+          PreparedStatement ps = con.prepareStatement(sql)) {
+
+         ps.setString(1, maHD);
+
+         try (ResultSet rs = ps.executeQuery()) {
+             if (rs.next()) {
+                 // Lấy tổng tiền trực tiếp từ cột tongTien
+                 tongTien = rs.getDouble("tongTien"); 
+             }
+         }
+     } catch (SQLException e) {
+         e.printStackTrace();
+     }
+     return tongTien;
+ }
 }
