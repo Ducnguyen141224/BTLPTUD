@@ -6,7 +6,6 @@ import java.util.Map;
 import javax.swing.*;
 
 import org.jfree.chart.*;
-import org.jfree.chart.plot.*;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DefaultPieDataset;
 
@@ -53,28 +52,64 @@ public class Dashboard_GUI extends JPanel {
     }
 
     // ================================
-    // 3. 4 ô thống kê đầu trang
+    // 3. Các ô thống kê
     // ================================
     private JPanel thongKeTong() {
 
+        // --- Lấy dữ liệu ---
         double doanhThuNgay = dao.getDoanhThuHomNay();
+        double doanhThuHomQua = dao.getDoanhThuHomQua();
+
         int soMonBan = dao.getSoMonBanHomNay();
+        int soMonBanHomQua = dao.getSoMonBanHomQua();
+
         double doanhThuThang = dao.getDoanhThuThangNay();
+        double doanhThuThangTruoc = dao.getDoanhThuThangTruoc();
+
         double doanhThuQuy = dao.getDoanhThuQuyNay();
+        double doanhThuQuyTruoc = dao.getDoanhThuQuyTruoc();
 
         JPanel pnl = new JPanel(new GridLayout(1, 4, 15, 10));
         pnl.setBackground(new Color(255, 230, 200));
         pnl.setBorder(BorderFactory.createEmptyBorder(15, 20, 10, 20));
 
-        pnl.add(taoBox("Tổng doanh thu hôm nay", format(doanhThuNgay), new Color(200, 255, 200), true));
-        pnl.add(taoBox("Số lượng món bán hôm nay", String.valueOf(soMonBan), new Color(255, 210, 210), false));
-        pnl.add(taoBox("Doanh thu tháng này", format(doanhThuThang), new Color(210, 225, 255), true));
-        pnl.add(taoBox("Doanh thu quý này", format(doanhThuQuy), new Color(200, 255, 200), true));
+        pnl.add(taoBox(
+                "Tổng doanh thu hôm nay",
+                format(doanhThuNgay),
+                dao.calcPercent(doanhThuNgay, doanhThuHomQua),
+                new Color(200, 255, 200),
+                true
+        ));
+
+        pnl.add(taoBox(
+                "Số lượng món bán hôm nay",
+                String.valueOf(soMonBan),
+                dao.calcPercent(soMonBan, soMonBanHomQua),
+                new Color(255, 210, 210),
+                false
+        ));
+
+        pnl.add(taoBox(
+                "Doanh thu tháng này",
+                format(doanhThuThang),
+                dao.calcPercent(doanhThuThang, doanhThuThangTruoc),
+                new Color(210, 225, 255),
+                true
+        ));
+
+        pnl.add(taoBox(
+                "Doanh thu quý này",
+                format(doanhThuQuy),
+                dao.calcPercent(doanhThuQuy, doanhThuQuyTruoc),
+                new Color(200, 255, 200),
+                true
+        ));
 
         return pnl;
     }
 
-    private JPanel taoBox(String title, String value, Color bg, boolean addVND) {
+    // Box thống kê có dòng tăng giảm
+    private JPanel taoBox(String title, String value, String changeText, Color bg, boolean addVND) {
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.setBackground(bg);
         pnl.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -85,12 +120,16 @@ public class Dashboard_GUI extends JPanel {
         JLabel lbl2 = new JLabel(value + (addVND ? " VND" : ""), SwingConstants.LEFT);
         lbl2.setFont(new Font("Segoe UI", Font.BOLD, 20));
 
+        JLabel lbl3 = new JLabel(changeText);
+        lbl3.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        lbl3.setForeground(Color.DARK_GRAY);
+
         pnl.add(lbl1, BorderLayout.NORTH);
         pnl.add(lbl2, BorderLayout.CENTER);
+        pnl.add(lbl3, BorderLayout.SOUTH);
 
         return pnl;
     }
-
 
     private String format(double val) {
         return String.format("%,.0f", val);
@@ -125,8 +164,7 @@ public class Dashboard_GUI extends JPanel {
                 dataset,
                 true, true, false);
 
-        ChartPanel panel = new ChartPanel(chart);
-        return panel;
+        return new ChartPanel(chart);
     }
 
     // --- Biểu đồ Bar ---
@@ -145,8 +183,7 @@ public class Dashboard_GUI extends JPanel {
                 "Số lượt",
                 dataset);
 
-        ChartPanel panel = new ChartPanel(chart);
-        return panel;
+        return new ChartPanel(chart);
     }
 
     // ================================
@@ -156,8 +193,7 @@ public class Dashboard_GUI extends JPanel {
 
         List<Map<String, Object>> list = dao.getTop3MonBanChay();
 
-        JPanel wrapper = new JPanel();
-        wrapper.setLayout(new BorderLayout());
+        JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setBackground(new Color(255, 230, 200));
         wrapper.setBorder(BorderFactory.createEmptyBorder(10, 20, 20, 20));
 

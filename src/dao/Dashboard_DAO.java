@@ -28,6 +28,26 @@ public class Dashboard_DAO {
     }
 
     // ============================
+    // 1b. Doanh thu hôm qua
+    // ============================
+    public double getDoanhThuHomQua() {
+        String sql =
+                "SELECT SUM(tongTien) " +
+                "FROM HOADON " +
+                "WHERE CONVERT(date, ngayLap) = CONVERT(date, DATEADD(day, -1, GETDATE()))";
+
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            return rs.next() ? rs.getDouble(1) : 0;
+
+        } catch (Exception e) { e.printStackTrace(); }
+
+        return 0;
+    }
+
+    // ============================
     // 2. Số lượng món bán hôm nay
     // ============================
     public int getSoMonBanHomNay() {
@@ -36,6 +56,27 @@ public class Dashboard_DAO {
                 "FROM CT_HOADON ct " +
                 "JOIN HOADON hd ON ct.maHD = hd.maHD " +
                 "WHERE CONVERT(date, hd.ngayLap) = CONVERT(date, GETDATE())";
+
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            return rs.next() ? rs.getInt(1) : 0;
+
+        } catch (Exception e) { e.printStackTrace(); }
+
+        return 0;
+    }
+
+    // ============================
+    // 2b. Số lượng món bán hôm qua
+    // ============================
+    public int getSoMonBanHomQua() {
+        String sql =
+                "SELECT SUM(ct.soLuong) " +
+                "FROM CT_HOADON ct " +
+                "JOIN HOADON hd ON ct.maHD = hd.maHD " +
+                "WHERE CONVERT(date, hd.ngayLap) = CONVERT(date, DATEADD(day, -1, GETDATE()))";
 
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -70,6 +111,27 @@ public class Dashboard_DAO {
     }
 
     // ============================
+    // 3b. Doanh thu tháng trước
+    // ============================
+    public double getDoanhThuThangTruoc() {
+        String sql =
+                "SELECT SUM(tongTien) " +
+                "FROM HOADON " +
+                "WHERE MONTH(ngayLap) = MONTH(DATEADD(month, -1, GETDATE())) " +
+                "AND YEAR(ngayLap) = YEAR(DATEADD(month, -1, GETDATE()))";
+
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            return rs.next() ? rs.getDouble(1) : 0;
+
+        } catch (Exception e) { e.printStackTrace(); }
+
+        return 0;
+    }
+
+    // ============================
     // 4. Doanh thu quý này
     // ============================
     public double getDoanhThuQuyNay() {
@@ -91,10 +153,39 @@ public class Dashboard_DAO {
     }
 
     // ============================
-    // 5. TỈ LỆ KHUNG GIỜ (Pie chart)
+    // 4b. Doanh thu quý trước
+    // ============================
+    public double getDoanhThuQuyTruoc() {
+        String sql =
+                "SELECT SUM(tongTien) " +
+                "FROM HOADON " +
+                "WHERE DATEPART(QUARTER, ngayLap) = DATEPART(QUARTER, DATEADD(quarter, -1, GETDATE())) " +
+                "AND YEAR(ngayLap) = YEAR(DATEADD(quarter, -1, GETDATE()))";
+
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            return rs.next() ? rs.getDouble(1) : 0;
+
+        } catch (Exception e) { e.printStackTrace(); }
+
+        return 0;
+    }
+
+    // ============================
+    // 8. Hàm tính phần trăm tăng giảm
+    // ============================
+    public String calcPercent(double current, double previous) {
+        if (previous == 0) return "↑ 100% so với trước";
+        double change = ((current - previous) / previous) * 100;
+        return (change >= 0 ? "↑ " : "↓ ") + String.format("%.1f", Math.abs(change)) + "% so với trước";
+    }
+
+    // ============================
+    // 5. TỈ LỆ KHUNG GIỜ
     // ============================
     public Map<String, Integer> getTiLeTheoKhungGio() {
-
         String sql =
                 "SELECT " +
                 "   CASE " +
@@ -129,10 +220,9 @@ public class Dashboard_DAO {
     }
 
     // ============================
-    // 6. Đặt bàn trong tuần (Bar chart)
+    // 6. Đặt bàn tuần này
     // ============================
     public Map<String, Integer> getThongKeDatBanTuanNay() {
-
         String sql =
                 "SELECT DATENAME(WEEKDAY, ngayDat) AS ngay, COUNT(*) AS soLuong " +
                 "FROM BANDAT " +
@@ -159,7 +249,6 @@ public class Dashboard_DAO {
     // 7. Top 3 món bán chạy
     // ============================
     public List<Map<String, Object>> getTop3MonBanChay() {
-
         String sql =
                 "SELECT TOP 3 m.tenMon, SUM(ct.soLuong) AS soLuong " +
                 "FROM CT_HOADON ct " +
