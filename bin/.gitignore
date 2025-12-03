@@ -1,6 +1,8 @@
-/connectDB/
-/dao/
-/entity/
-/gui/
-/image/
-/test/
+# ⭐️ Dòng này là bắt buộc để fix lỗi của bạn
+/bin/ 
+*.class
+
+# Các file IDE va project settings nen bo qua
+.classpath
+.project
+.settings/
