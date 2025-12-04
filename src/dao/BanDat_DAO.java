@@ -144,12 +144,10 @@ public class BanDat_DAO {
             ps.setDouble(7, banDat.getTienCoc());
             ps.setString(8, banDat.getTrangThai());
             ps.setString(9, banDat.getGhiChu());
-            if ("Trống".equalsIgnoreCase(banDat.getTrangThai())) {
-                ps.setNull(10, Types.TIME);
+            if (banDat.getTrangThai().equalsIgnoreCase("Đang sử dụng")) {
+                ps.setTime(10, Time.valueOf(LocalTime.now())); // auto check-in
             } else {
-                ps.setTime(10, 
-                    banDat.getGioCheckIn() != null ? Time.valueOf(banDat.getGioCheckIn()) : null
-                );
+                ps.setNull(10, Types.TIME);
             }
 
             n = ps.executeUpdate();
@@ -403,8 +401,9 @@ public class BanDat_DAO {
         BanDat banDat = null;
 
         String sql =
-            "SELECT * FROM BANDAT " +
-            "WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+        	    "SELECT TOP 1 * FROM BANDAT " +
+        	    "WHERE maBan = ? AND trangThai = N'Đang sử dụng' " +
+        	    "ORDER BY ngayDat DESC, gioDat DESC";
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
@@ -424,8 +423,9 @@ public class BanDat_DAO {
     public LocalTime getGioCheckInTheoBan(String maBan) {
         Connection con = ConnectDB.getConnection();
         String sql =
-            "SELECT gioCheckIn FROM BANDAT " +
-            "WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+        	    "SELECT TOP 1 gioCheckIn FROM BANDAT " +
+        	    	    "WHERE maBan = ? AND trangThai = N'Đang sử dụng' " +
+        	    	    "ORDER BY ngayDat DESC, gioDat DESC";
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
@@ -443,7 +443,10 @@ public class BanDat_DAO {
         Connection con = ConnectDB.getConnection();
         BanDat banDat = null;
 
-        String sql = "SELECT * FROM BANDAT WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+        String sql =
+        	    "SELECT TOP 1 * FROM BANDAT " +
+        	    "WHERE maBan = ? AND trangThai = N'Đang sử dụng' " +
+        	    "ORDER BY ngayDat DESC, gioDat DESC";
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
