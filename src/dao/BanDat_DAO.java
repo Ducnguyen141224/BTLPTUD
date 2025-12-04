@@ -131,7 +131,7 @@ public class BanDat_DAO {
 
         // --- INSERT DATABASE ---
         String sql = "INSERT INTO BANDAT (maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu,gioCheckIn) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         int n = 0;
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -144,12 +144,10 @@ public class BanDat_DAO {
             ps.setDouble(7, banDat.getTienCoc());
             ps.setString(8, banDat.getTrangThai());
             ps.setString(9, banDat.getGhiChu());
-            if ("Trống".equalsIgnoreCase(banDat.getTrangThai())) {
-                ps.setNull(10, Types.TIME);
+            if (banDat.getTrangThai().equalsIgnoreCase("Đang sử dụng")) {
+                ps.setTime(10, Time.valueOf(LocalTime.now())); // auto check-in
             } else {
-                ps.setTime(10, 
-                    banDat.getGioCheckIn() != null ? Time.valueOf(banDat.getGioCheckIn()) : null
-                );
+                ps.setNull(10, Types.TIME);
             }
 
             n = ps.executeUpdate();
@@ -190,31 +188,26 @@ public class BanDat_DAO {
    
     public boolean updateBanDat(BanDat banDat) {
         Connection con = ConnectDB.getConnection();
-        String sql = "UPDATE BANDAT SET maKH = ?, maBan = ?, ngayDat = ?, gioDat = ?, soLuongKhach = ?, tienCoc = ?, trangThai = ?, ghiChu = ? WHERE maDatBan = ?";
+        String sql = "UPDATE BANDAT SET maKH = ?, maBan = ?, ngayDat = ?, gioDat = ?, soLuongKhach = ?, tienCoc = ?, trangThai = ?, ghiChu = ?, gioCheckIn = ? WHERE maDatBan = ?";
         int n = 0;
         
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, banDat.getKhachHang().getMaKH());
             ps.setString(2, banDat.getBan().getMaBan());
-            
             ps.setDate(3, Date.valueOf(banDat.getNgayDat()));
             ps.setTime(4, Time.valueOf(banDat.getGioDat()));
-            
             ps.setInt(5, banDat.getSoLuongKhach());
             ps.setDouble(6, banDat.getTienCoc());
             ps.setString(7, banDat.getTrangThai());
             ps.setString(8, banDat.getGhiChu());
 
-         // Nếu trạng thái = Trống → không có giờ check-in
-         if ("Trống".equalsIgnoreCase(banDat.getTrangThai())) {
-             ps.setNull(10, Types.TIME);
-         } else {
-             ps.setTime(10, 
-                 banDat.getGioCheckIn() != null ? Time.valueOf(banDat.getGioCheckIn()) : null
-             );
-         }
+            if (banDat.getGioCheckIn() != null) {
+                ps.setTime(9, Time.valueOf(banDat.getGioCheckIn()));
+            } else {
+                ps.setNull(9, Types.TIME);
+            }
 
-         ps.setString(11, banDat.getMaDatBan());
+            ps.setString(10, banDat.getMaDatBan());
             n = ps.executeUpdate();
         } catch (SQLException e) {
             System.err.println("Lỗi khi cập nhật đặt bàn: " + e.getMessage());
@@ -390,8 +383,9 @@ public class BanDat_DAO {
         BanDat banDat = null;
 
         String sql =
-            "SELECT * FROM BANDAT " +
-            "WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+        	    "SELECT TOP 1 * FROM BANDAT " +
+        	    "WHERE maBan = ? AND trangThai = N'Đang sử dụng' " +
+        	    "ORDER BY ngayDat DESC, gioDat DESC";
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
@@ -411,8 +405,9 @@ public class BanDat_DAO {
     public LocalTime getGioCheckInTheoBan(String maBan) {
         Connection con = ConnectDB.getConnection();
         String sql =
-            "SELECT gioCheckIn FROM BANDAT " +
-            "WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+        	    "SELECT TOP 1 gioCheckIn FROM BANDAT " +
+        	    	    "WHERE maBan = ? AND trangThai = N'Đang sử dụng' " +
+        	    	    "ORDER BY ngayDat DESC, gioDat DESC";
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
@@ -430,7 +425,10 @@ public class BanDat_DAO {
         Connection con = ConnectDB.getConnection();
         BanDat banDat = null;
 
-        String sql = "SELECT * FROM BANDAT WHERE maBan = ? AND trangThai = N'Đang sử dụng'";
+        String sql =
+        	    "SELECT TOP 1 * FROM BANDAT " +
+        	    "WHERE maBan = ? AND trangThai = N'Đang sử dụng' " +
+        	    "ORDER BY ngayDat DESC, gioDat DESC";
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);

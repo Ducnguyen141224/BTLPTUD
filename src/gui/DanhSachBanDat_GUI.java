@@ -436,40 +436,60 @@
 	    private void checkInDatBan() {
 	        String maDatBan = txtMaDatBan.getText().trim();
 	        if (maDatBan.isEmpty()) {
-	            JOptionPane.showMessageDialog(this, "Vui lòng chọn một mục đặt bàn để Check-in!", "Chưa chọn", JOptionPane.WARNING_MESSAGE);
+	            JOptionPane.showMessageDialog(this,
+	                    "Vui lòng chọn một mục đặt bàn để Check-in!",
+	                    "Chưa chọn",
+	                    JOptionPane.WARNING_MESSAGE);
 	            return;
 	        }
-	        
+
 	        BanDat banDat = banDatDAO.getBanDatById(maDatBan);
 	        if (banDat == null) return;
+
 	        String maBan = banDat.getBan().getMaBan();
-	        String trangThaiHienTai = banDat.getTrangThai();
-	
-	        int confirm = JOptionPane.showConfirmDialog(this, 
-	            "Xác nhận Check-in cho đơn: " + maDatBan + " (Bàn " + maBan + " sẽ chuyển sang 'Đang sử dụng')", 
-	            "Xác nhận Check-in", 
-	            JOptionPane.YES_NO_OPTION);
-	
+
+	        int confirm = JOptionPane.showConfirmDialog(this,
+	                "Xác nhận Check-in cho đơn: " + maDatBan +
+	                        " (Bàn " + maBan + " sẽ chuyển sang 'Đang sử dụng')",
+	                "Xác nhận Check-in",
+	                JOptionPane.YES_NO_OPTION);
+
 	        if (confirm != JOptionPane.YES_OPTION) {
 	            return;
 	        }
-	
-	        banDat.setTrangThai("Hoàn thành");
+
+	        // ⭐ 1. SET GIỜ CHECK-IN ĐÚNG
+	        banDat.setGioCheckIn(LocalTime.now());
+
+	        // ⭐ 2. ĐỔI TRẠNG THÁI ĐÚNG LÀ "Đang sử dụng"
+	        banDat.setTrangThai("Đang sử dụng");
+
+	        // ⭐ 3. CẬP NHẬT DATABASE
 	        if (!banDatDAO.updateBanDat(banDat)) {
-	            JOptionPane.showMessageDialog(this, "Lỗi cập nhật trạng thái đặt bàn sang 'Hoàn thành'.", "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
+	            JOptionPane.showMessageDialog(this,
+	                    "Lỗi cập nhật trạng thái đặt bàn sang 'Đang sử dụng'.",
+	                    "Lỗi CSDL",
+	                    JOptionPane.ERROR_MESSAGE);
 	            return;
 	        }
-	
+
+	        // ⭐ 4. Cập nhật trạng thái bàn vật lý
 	        capNhatTrangThaiBan(maBan, "Đang sử dụng");
+
+	        // Refresh UI
 	        loadAllDataAndFilter();
 	        lamMoiForm();
-	       
+
 	        if (refreshListener != null) {
 	            refreshListener.onDataChanged();
 	        }
-	        
-	        JOptionPane.showMessageDialog(this, "Check-in thành công. Bàn " + maBan + " đang sử dụng.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+
+	        JOptionPane.showMessageDialog(this,
+	                "Check-in thành công. Bàn " + maBan + " đang sử dụng.",
+	                "Thành công",
+	                JOptionPane.INFORMATION_MESSAGE);
 	    }
+
 	
 	    private void timKiemVaLoc() {
 	        String tuKhoa = txtTimKiem.getText().trim().toLowerCase();
