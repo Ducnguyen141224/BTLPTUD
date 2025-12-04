@@ -32,7 +32,7 @@ public class BanDat_GUI extends JPanel {
     private JComboBox<String> cboGioDat, cboKhuVuc; 
     private JTextArea txtGhiChu;
     
-    private JButton btnDatBan, btnLamMoi, btnGoiMon; 
+    private JButton btnDatBan, btnLamMoi, btnGoiMon, btnTimBan;; 
     
     private JPanel pnlBanCards; // Panel chứa các card bàn
     private Ban banDangChon = null; // Bàn được chọn
@@ -375,10 +375,11 @@ public class BanDat_GUI extends JPanel {
         
         btnDatBan = createStyledButton("✅ Đặt Bàn", COLOR_PRIMARY, 140);
         btnLamMoi = createStyledButton("🔄 Làm Mới", new Color(158, 158, 158), 140);
+        btnTimBan = createStyledButton("🔍 Tìm Bàn", COLOR_ACCENT, 120);
         
         buttonPanel.add(btnDatBan);
         buttonPanel.add(btnLamMoi);
-        
+        buttonPanel.add(btnTimBan);
         panel.add(buttonPanel, gbc);
         
         return panel;
@@ -450,6 +451,7 @@ public class BanDat_GUI extends JPanel {
         btnDatBan.addActionListener(e -> datBanMoi());
         btnLamMoi.addActionListener(e -> lamMoiForm());
         btnGoiMon.addActionListener(e -> moGiaoDienGoiMon());
+        btnTimBan.addActionListener(e -> timBanPhuHop());
     }
     
     private void locBanTheoKhuVuc() {
@@ -603,12 +605,11 @@ public class BanDat_GUI extends JPanel {
         
         banDangChon = null;
         
-        // Bỏ highlight các card
-        for (Component comp : pnlBanCards.getComponents()) {
-            if (comp instanceof JPanel) {
-                comp.setBackground(COLOR_CARD_BG);
-            }
-        }
+        // Reset combobox khu vực về Tất cả
+        cboKhuVuc.setSelectedIndex(0);
+        
+        // --- QUAN TRỌNG: Load lại toàn bộ bàn ---
+        loadBanCards(banDAO.getAllBan());
     }
     
  // Thay thế hàm moGiaoDienGoiMon() cũ bằng hàm này
@@ -767,6 +768,86 @@ public class BanDat_GUI extends JPanel {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+ // --- HÀM TÌM BÀN (ĐÃ NÂNG CẤP) ---
+    private void timBanPhuHop() {
+        String soNguoiStr = txtSoNguoi.getText().trim();
+        if (soNguoiStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập số người cần tìm!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            txtSoNguoi.requestFocus();
+            return;
+        }
+
+        int soNguoi = 0;
+        try {
+            soNguoi = Integer.parseInt(soNguoiStr);
+            if(soNguoi <= 0) throw new Exception();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Số người không hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Lấy tất cả bàn
+        ArrayList<Ban> allBan = banDAO.getAllBan();
+        ArrayList<Ban> result = new ArrayList<>();
+
+        // --- CẤU HÌNH ĐỘ LỆCH GHẾ ---
+        // Cho phép dư tối đa bao nhiêu ghế. 
+        // Ví dụ: Khách 2 người. 
+        // Nếu MAX_DU_THUA = 4 -> Gợi ý bàn 2, 4, 6. (Bàn 8, 10 sẽ bị loại)
+        int MAX_DU_THUA = 4; 
+
+        for (Ban b : allBan) {
+            int soGhe = b.getSoGhe();
+            
+            // Logic lọc nâng cao:
+            // 1. Trạng thái phải là Trống
+            // 2. Số ghế phải ĐỦ (soGhe >= soNguoi)
+            // 3. Số ghế KHÔNG QUÁ DƯ THỪA (soGhe <= soNguoi + MAX_DU_THUA)
+            boolean dkTrangThai = "Trống".equals(b.getTrangThai());
+            boolean dkDuCho = soGhe >= soNguoi;
+            boolean dkKhongLangPhi = soGhe <= (soNguoi + MAX_DU_THUA);
+            
+            // Nếu bạn muốn tìm chính xác hơn nữa, có thể bỏ comment dòng dưới để lọc theo khu vực đang chọn
+            // String khuVucHienTai = cboKhuVuc.getSelectedItem().toString();
+            // boolean dkKhuVuc = "Tất cả".equals(khuVucHienTai) || b.getKhuVuc().equals(khuVucHienTai);
+
+            if (dkTrangThai && dkDuCho && dkKhongLangPhi) {
+                result.add(b);
+            }
+        }
+        
+        // --- SẮP XẾP KẾT QUẢ ---
+        // Sắp xếp để các bàn vừa vặn nhất (số ghế nhỏ nhất) hiện lên đầu danh sách
+        result.sort((b1, b2) -> Integer.compare(b1.getSoGhe(), b2.getSoGhe()));
+
+        // --- HIỂN THỊ ---
+        if (result.isEmpty()) {
+            // Nếu lọc quá chặt không ra bàn nào, thử tìm các bàn lớn hơn nữa (Fallback)
+            // Để tránh trường hợp khách 6 người mà chỉ còn bàn 12 người, nếu lọc chặt quá sẽ báo không tìm thấy.
+             int confirm = JOptionPane.showConfirmDialog(this, 
+                "Không tìm thấy bàn vừa vặn (dư < " + MAX_DU_THUA + " ghế).\nBạn có muốn xem các bàn lớn hơn không?",
+                "Gợi ý mở rộng",
+                JOptionPane.YES_NO_OPTION);
+             
+             if (confirm == JOptionPane.YES_OPTION) {
+                 // Tìm lại nhưng bỏ điều kiện dkKhongLangPhi
+                 result.clear();
+                 for (Ban b : allBan) {
+                     if ("Trống".equals(b.getTrangThai()) && b.getSoGhe() >= soNguoi) {
+                         result.add(b);
+                     }
+                 }
+                 result.sort((b1, b2) -> Integer.compare(b1.getSoGhe(), b2.getSoGhe()));
+                 loadBanCards(result);
+             }
+        } else {
+            loadBanCards(result); // Hiển thị danh sách đã lọc
+            JOptionPane.showMessageDialog(this, 
+                "Tìm thấy " + result.size() + " bàn phù hợp (Dư tối đa " + MAX_DU_THUA + " ghế).", 
+                "Kết quả", 
+                JOptionPane.INFORMATION_MESSAGE);
         }
     }
     

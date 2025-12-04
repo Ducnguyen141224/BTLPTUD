@@ -131,7 +131,7 @@ public class BanDat_DAO {
 
         // --- INSERT DATABASE ---
         String sql = "INSERT INTO BANDAT (maDatBan, maKH, maBan, ngayDat, gioDat, soLuongKhach, tienCoc, trangThai, ghiChu,gioCheckIn) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         int n = 0;
 
         try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -190,31 +190,44 @@ public class BanDat_DAO {
    
     public boolean updateBanDat(BanDat banDat) {
         Connection con = ConnectDB.getConnection();
-        String sql = "UPDATE BANDAT SET maKH = ?, maBan = ?, ngayDat = ?, gioDat = ?, soLuongKhach = ?, tienCoc = ?, trangThai = ?, ghiChu = ? WHERE maDatBan = ?";
+        
+        // --- SỬA LỖI TẠI ĐÂY ---
+        // 1. Thêm ", gioCheckIn = ?" vào câu lệnh SQL
+        String sql = "UPDATE BANDAT SET maKH = ?, maBan = ?, ngayDat = ?, gioDat = ?, soLuongKhach = ?, tienCoc = ?, trangThai = ?, ghiChu = ?, gioCheckIn = ? WHERE maDatBan = ?";
+        
         int n = 0;
         
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, banDat.getKhachHang().getMaKH());
             ps.setString(2, banDat.getBan().getMaBan());
-            
-            ps.setDate(3, Date.valueOf(banDat.getNgayDat()));
-            ps.setTime(4, Time.valueOf(banDat.getGioDat()));
-            
+            ps.setDate(3, java.sql.Date.valueOf(banDat.getNgayDat()));
+            ps.setTime(4, java.sql.Time.valueOf(banDat.getGioDat()));
             ps.setInt(5, banDat.getSoLuongKhach());
             ps.setDouble(6, banDat.getTienCoc());
             ps.setString(7, banDat.getTrangThai());
             ps.setString(8, banDat.getGhiChu());
 
-         // Nếu trạng thái = Trống → không có giờ check-in
-         if ("Trống".equalsIgnoreCase(banDat.getTrangThai())) {
-             ps.setNull(10, Types.TIME);
-         } else {
-             ps.setTime(10, 
-                 banDat.getGioCheckIn() != null ? Time.valueOf(banDat.getGioCheckIn()) : null
-             );
-         }
+            // --- SỬA LỖI TẠI ĐÂY: Tham số thứ 9 là gioCheckIn ---
+            // Nếu trạng thái = Trống hoặc Đã đặt (chưa vào) -> không có giờ check-in (NULL)
+            if ("Trống".equalsIgnoreCase(banDat.getTrangThai()) || "Đã đặt".equalsIgnoreCase(banDat.getTrangThai())) {
+                // Nếu bạn muốn giữ giờ checkin khi update trạng thái khác thì cần logic khác, 
+                // nhưng thường update về 'Đang sử dụng' mới cần set giờ.
+                // Ở đây ta set theo object truyền vào:
+                 if (banDat.getGioCheckIn() != null) {
+                     ps.setTime(9, java.sql.Time.valueOf(banDat.getGioCheckIn()));
+                 } else {
+                     ps.setNull(9, java.sql.Types.TIME);
+                 }
+            } else {
+                // Trường hợp 'Đang sử dụng', 'Hoàn thành'...
+                ps.setTime(9, 
+                    banDat.getGioCheckIn() != null ? java.sql.Time.valueOf(banDat.getGioCheckIn()) : null
+                );
+            }
 
-         ps.setString(11, banDat.getMaDatBan());
+            // --- SỬA LỖI TẠI ĐÂY: Tham số thứ 10 là maDatBan (Điều kiện WHERE) ---
+            ps.setString(10, banDat.getMaDatBan());
+            
             n = ps.executeUpdate();
         } catch (SQLException e) {
             System.err.println("Lỗi khi cập nhật đặt bàn: " + e.getMessage());
