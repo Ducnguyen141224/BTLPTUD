@@ -1,4 +1,3 @@
-
 package gui;
 
 import javax.swing.*;
@@ -6,8 +5,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.net.URL; 
-import java.sql.SQLException; 
+import java.net.URL;
+import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.LocalTime;
 import java.util.*;
@@ -15,51 +14,54 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 // Import các lớp cần thiết để làm việc với CSDL
-import connectDB.ConnectDB; 
+import connectDB.ConnectDB;
 import dao.MonAn_DAO;
 import dao.BanDat_DAO;
 import dao.Ban_DAO;
-import dao.CT_BanDat_DAO; 
+import dao.CT_BanDat_DAO;
 import entity.MonAn;
-import gui.GoiMon_GUI.NutEditor;
-import gui.GoiMon_GUI.NutRenderer;
 import entity.CTBanDat;
 import entity.Ban;
-import entity.BanDat; // Cần cho CTBanDat
+import entity.BanDat;
+ import entity.NhanVien; 
+ import gui.ThanhToan_Gui; 
+ import gui.DangNhap_GUI; 
 
 
 public class GoiMon_GUI extends JPanel {
     private NumberFormat dinhDangTien;
     
-    private JComboBox<String> cboLoaiMon;
+    private String loaiMonDangChon = "Tất cả"; 
+
     private JPanel pnlDanhSachMon;
     private JTextField txtTimKiem;
     private JTable tblMonDangGoi;
     private DefaultTableModel modelMonDangGoi;
     private JLabel lblTongTienDangGoi;
-    private Map<String, Integer> gioHang; 
-    private Map<String, Integer> bangGia; 
-    private double tongTien = 0;              
+    private Map<String, Integer> gioHang;
+    private Map<String, Integer> bangGia;
+    private double tongTien = 0;
     private JLabel lblTongTien;
     private JTable tblMonDaGoi;
     private DefaultTableModel modelMonDaGoi;
-    private Map<String, Integer> gioHangXacNhan; 
-    private double tongTienHoaDon = 0;       
+    private Map<String, Integer> gioHangXacNhan;
+    private double tongTienHoaDon = 0;
     private JTextArea txtGhiChu;
     private JLabel lblTieuDeDangGoi;
     private JLabel lblTieuDeDaGoi;
     private MonAn_DAO monAn_DAO;
-    private CT_BanDat_DAO ctBanDat_DAO; 
-    private List<MonAn> danhSachMonAn; 
+    private CT_BanDat_DAO ctBanDat_DAO;
+    private List<MonAn> danhSachMonAn;
     private List<MonAn> danhSachMonAnHienThi;
     private String maBanHienTai;
     private LocalTime gioVao;
     private BanDat_DAO banDatDAO = new BanDat_DAO();
     private static final String[] COT_DANG_GOI = {"STT", "Tên món", "SL", "Giá", "Thao tác"};
     private static final String[] COT_DA_GOI = {"STT", "Tên món", "SL", "Giá"};
+
     public GoiMon_GUI(String maBan) throws SQLException {
-        this.maBanHienTai = maBan; 
-        BanDat bd = banDatDAO.getBanDatDangSuDung(maBan); // Bạn có thể tạo hàm này
+        this.maBanHienTai = maBan;
+        BanDat bd = banDatDAO.getBanDatDangSuDung(maBan);
         if (bd != null && bd.getGioCheckIn() != null) {
             this.gioVao = bd.getGioCheckIn();
         } else {
@@ -72,9 +74,14 @@ public class GoiMon_GUI extends JPanel {
         bangGia = new HashMap<>();
         gioHangXacNhan = new LinkedHashMap<>();
 
-        // 1. KHỞI TẠO MODEL VÀ LABEL (Sửa lỗi NullPointer)
         modelMonDangGoi = new DefaultTableModel(COT_DANG_GOI, 0) {
-            public boolean isCellEditable(int r, int c) { return c == 4; }
+            @Override
+            public boolean isCellEditable(int r, int c) { return c == 2 || c == 4; } 
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 2) return Integer.class; 
+                return super.getColumnClass(columnIndex);
+            }
         };
         modelMonDaGoi = new DefaultTableModel(COT_DA_GOI, 0) {
             public boolean isCellEditable(int r, int c) { return false; } 
@@ -86,17 +93,14 @@ public class GoiMon_GUI extends JPanel {
         lblTieuDeDaGoi = new JLabel("Món đã gọi (0)"); 
 
 
-        // 2. KHỞI TẠO DAO VÀ KẾT NỐI
         monAn_DAO = new MonAn_DAO();
         ctBanDat_DAO = new CT_BanDat_DAO(); 
         ConnectDB.getConnection(); 
         
-        // 3. TẢI DỮ LIỆU
         taiDuLieuMonAn();
         khoiTaoGia(); 
         taiDuLieuDaGoi(); 
 
-        // 4. THIẾT LẬP GUI
         setLayout(new BorderLayout());
         setBackground(new Color(255, 235, 205));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -139,24 +143,17 @@ public class GoiMon_GUI extends JPanel {
 
 
 
-    /**
-     * ✅ THÊM MỚI: Cập nhật mã bàn hiện tại và tải lại dữ liệu món đã gọi
-     */
     public void setMaBanHienTai(String maBan) {
         this.maBanHienTai = maBan;
         
-        // Xóa dữ liệu cũ
         gioHangXacNhan.clear();
         gioHang.clear();
         
-        // Tải lại dữ liệu món đã gọi cho bàn mới
         taiDuLieuDaGoi();
         
-        // Cập nhật giao diện
         capNhatBangGio();
         txtGhiChu.setText("");
         
-        // Cập nhật tiêu đề
         Component[] components = getComponents();
         for (Component comp : components) {
             if (comp instanceof JPanel) {
@@ -208,15 +205,16 @@ public class GoiMon_GUI extends JPanel {
         capNhatBangDaGoi();
     }
 
-// --- LOGIC LỌC VÀ TÌM KIẾM ----------------------------------------------
-
-    private void locMon() {
-        String loaiChon = (String) cboLoaiMon.getSelectedItem();
+    private void locMonNavbar(String loaiChon) {
+        if (loaiChon != null) {
+            this.loaiMonDangChon = loaiChon; 
+        }
+        
         danhSachMonAnHienThi.clear();
         String tuKhoa = txtTimKiem.getText().trim().toLowerCase();
         
         for (MonAn mon : danhSachMonAn) {
-            boolean thoaManLoai = "Tất cả".equals(loaiChon) || mon.getLoaiMonAn().equals(loaiChon);
+            boolean thoaManLoai = "Tất cả".equals(loaiMonDangChon) || mon.getLoaiMonAn().equals(loaiMonDangChon);
             boolean thoaManTimKiem = mon.getTenMonAn().toLowerCase().contains(tuKhoa);
             
             if (thoaManLoai && thoaManTimKiem) {
@@ -227,10 +225,8 @@ public class GoiMon_GUI extends JPanel {
     }
 
     private void timMon() {
-        locMon();
+        locMonNavbar(null); 
     }
-
-// --- LOGIC GIỎ HÀNG (TRONG BỘ NHỚ) ---------------------------------------
 
     private void themVaoGio(String ten, int gia, int sl) {
         if (gioHang.containsKey(ten))
@@ -248,8 +244,8 @@ public class GoiMon_GUI extends JPanel {
         for (Map.Entry<String, Integer> e : gioHang.entrySet()) {
             String ten = e.getKey();
             int sl = e.getValue();
-            // Lấy giá từ Map bangGia đã được load từ CSDL
             int gia = bangGia.getOrDefault(ten, 0);
+            
             modelMonDangGoi.addRow(new Object[]{stt++, ten, sl, dinhDangTien.format((long)gia * sl) + " VND", "Xóa"});
             tongTien += (long)gia * sl;
         }
@@ -266,8 +262,8 @@ public class GoiMon_GUI extends JPanel {
     
     private void huyDon() {
         if (gioHang.isEmpty()) {
-             JOptionPane.showMessageDialog(this, "Giỏ hàng rỗng, không có gì để hủy.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-             return;
+              JOptionPane.showMessageDialog(this, "Giỏ hàng rỗng, không có gì để hủy.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+              return;
         }
 
         if (JOptionPane.showConfirmDialog(this, "Bạn có chắc muốn hủy đơn đang gọi?", "Xác nhận", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
@@ -293,7 +289,7 @@ public class GoiMon_GUI extends JPanel {
             }
 
             ctBanDat_DAO.xoaTatCaCTBan(maBanHienTai); 
-            Ban banDatGoc = new Ban(maBanHienTai);         
+            Ban banDatGoc = new Ban(maBanHienTai);           
             for (Map.Entry<String, Integer> entry : gioHangXacNhan.entrySet()) {
                 MonAn mon = mapTenToMon.get(entry.getKey());
                 if (mon != null) {
@@ -314,20 +310,13 @@ public class GoiMon_GUI extends JPanel {
 
         JOptionPane.showMessageDialog(this, "Đã xác nhận đơn hàng! Các món đã được lưu vào CSDL.");
     }
- 
-// --- PHƯƠNG THỨC XỬ LÝ SAU THANH TOÁN ------------------------------------
-
-
 
     public void lamMoiSauThanhToan() {
         try {
-            ctBanDat_DAO.xoaTatCaCTBan(maBanHienTai); // Sử dụng mã bàn hiện tại
-            Ban_DAO banDAO_temp = new Ban_DAO(); // Khởi tạo DAO Bàn (hoặc inject nếu có)
+            ctBanDat_DAO.xoaTatCaCTBan(maBanHienTai); 
+            Ban_DAO banDAO_temp = new Ban_DAO(); 
             if (banDAO_temp.updateTrangThaiBan(maBanHienTai, "Trống")) {
-//                System.out.println(">>> [GoiMon_GUI] Đã cập nhật bàn '" + maBanHienTai + "' thành Trống sau thanh toán.");
             } else {
-//                System.err.println(">>> [GoiMon_GUI] Lỗi: Không cập nhật được trạng thái bàn '" + maBanHienTai + "' thành Trống.");
-               
                  JOptionPane.showMessageDialog(this, "Lỗi cập nhật trạng thái bàn về Trống.", "Lỗi CSDL", JOptionPane.WARNING_MESSAGE);
             }
 
@@ -335,6 +324,7 @@ public class GoiMon_GUI extends JPanel {
             JOptionPane.showMessageDialog(this, "Lỗi CSDL khi làm mới sau thanh toán: " + e.getMessage(), "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace(); 
         }
+        
         gioHangXacNhan.clear(); 
         tongTienHoaDon = 0;
         modelMonDaGoi.setRowCount(0); 
@@ -345,7 +335,7 @@ public class GoiMon_GUI extends JPanel {
         txtGhiChu.setText("");
         JOptionPane.showMessageDialog(this, "Hóa đơn đã được thanh toán và bàn [" + maBanHienTai + "] đã được dọn!", "Hoàn tất", JOptionPane.INFORMATION_MESSAGE);
     }
-   
+    
     private void thanhToan() {
         if (gioHangXacNhan.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Chưa có món nào được xác nhận để thanh toán!", "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -364,12 +354,12 @@ public class GoiMon_GUI extends JPanel {
         System.out.println("Mã bàn hiện tại: " + this.maBanHienTai);
         double tienCoc = 0;
         try {
-           
-            tienCoc = banDatDAO.getTienCocByActiveMaBan(this.maBanHienTai);          
+            
+            tienCoc = banDatDAO.getTienCocByActiveMaBan(this.maBanHienTai);           
         } catch (Exception e_sql) {
             JOptionPane.showMessageDialog(this, "Lỗi khi tải tiền cọc: " + e_sql.getMessage(), "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
         }
-     
+      
         JFrame thanhToanFrame = new JFrame("Thanh toán");
         thanhToanFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
         thanhToanFrame.setSize(1000, 750);
@@ -385,28 +375,26 @@ public class GoiMon_GUI extends JPanel {
         });
 
         try {
-            ThanhToan_Gui thanhToanPanel = new ThanhToan_Gui(
-                gioHangXacNhan, 
-                bangGia, 
-                tongTienHoaDon,
-                tienCoc,
-                maBanHienTai,
-                DangNhap_GUI.taiKhoanDangNhap.getNhanVien(),
-                this.gioVao
-            );
-            thanhToanFrame.setContentPane(thanhToanPanel);
-            
+             ThanhToan_Gui thanhToanPanel = new ThanhToan_Gui(
+                 gioHangXacNhan, 
+                 bangGia, 
+                 tongTienHoaDon,
+                 tienCoc,
+                 maBanHienTai,
+                 DangNhap_GUI.taiKhoanDangNhap.getNhanVien(), 
+                 this.gioVao
+             );
+             thanhToanFrame.setContentPane(thanhToanPanel);
+
         } catch (Exception e) {
-             JOptionPane.showMessageDialog(this, "Lỗi khi khởi tạo màn hình Thanh toán: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-             parentFrame.setVisible(true); 
-             return;
+              JOptionPane.showMessageDialog(this, "Lỗi khi khởi tạo màn hình Thanh toán: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+              parentFrame.setVisible(true); 
+              return;
         }
 
         thanhToanFrame.setVisible(true);
     }
     
-
-// --- KHU VỰC THIẾT KẾ GUI VÀ HIỂN THỊ ------------------------------------
 
     private void capNhatBangDaGoi() {
         modelMonDaGoi.setRowCount(0);
@@ -428,36 +416,59 @@ public class GoiMon_GUI extends JPanel {
         lblTongTien.setText(dinhDangTien.format(tongTienHoaDon) + " VND");
     }
     
+    // START: Sửa Navbar
     private JPanel taoKhuVucMenu() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(Color.WHITE);
 
-        JPanel pnlTop = new JPanel(new BorderLayout(8, 0));
-        pnlTop.setBackground(Color.WHITE);
+        JPanel pnlLoaiMonNavbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        pnlLoaiMonNavbar.setBackground(Color.WHITE);
+        pnlLoaiMonNavbar.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0)); 
 
-        JPanel pnlLoai = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        pnlLoai.setBackground(Color.WHITE);
-        JLabel lblLoai = new JLabel("Loại món");
-        lblLoai.setFont(new Font("Arial", Font.BOLD, 13));
-        
         List<String> loaiMonCSDL = new ArrayList<>();
         try {
             loaiMonCSDL = monAn_DAO.layDanhSachLoaiMon();
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        List<String> dsLoaiMoi = new ArrayList<>();
+        dsLoaiMoi.add("Tất cả");
+        dsLoaiMoi.addAll(loaiMonCSDL);
         
-        String[] dsLoaiMoi = new String[loaiMonCSDL.size() + 1];
-        dsLoaiMoi[0] = "Tất cả";
-        for(int i = 0; i < loaiMonCSDL.size(); i++) {
-            dsLoaiMoi[i+1] = loaiMonCSDL.get(i);
+        List<JButton> listButtons = new ArrayList<>();
+        
+        for (String loai : dsLoaiMoi) {
+            JButton btnLoai = new JButton(loai);
+            btnLoai.setFont(new Font("Arial", Font.BOLD, 12));
+            btnLoai.setFocusPainted(false);
+            btnLoai.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            btnLoai.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            if (loai.equals("Tất cả")) {
+                btnLoai.setBackground(new Color(40, 167, 69)); 
+                btnLoai.setForeground(Color.WHITE);
+            } else {
+                btnLoai.setBackground(new Color(240, 240, 240)); 
+                btnLoai.setForeground(Color.BLACK);
+            }
+            
+            btnLoai.addActionListener(e -> {
+                for(JButton btn : listButtons) {
+                    if (btn == btnLoai) {
+                        btn.setBackground(new Color(40, 167, 69)); 
+                        btn.setForeground(Color.WHITE);
+                    } else {
+                        btn.setBackground(new Color(240, 240, 240)); 
+                        btn.setForeground(Color.BLACK);
+                    }
+                }
+                locMonNavbar(loai); 
+            });
+            
+            listButtons.add(btnLoai);
+            pnlLoaiMonNavbar.add(btnLoai);
         }
-        
-        cboLoaiMon = new JComboBox<>(dsLoaiMoi);
-        cboLoaiMon.setPreferredSize(new Dimension(140, 32));
-        cboLoaiMon.addActionListener(e -> locMon());
-        pnlLoai.add(lblLoai);
-        pnlLoai.add(cboLoaiMon);
         
         JPanel pnlTim = new JPanel(new BorderLayout(4, 0));
         pnlTim.setBackground(Color.WHITE);
@@ -470,12 +481,15 @@ public class GoiMon_GUI extends JPanel {
         btnTim.setFocusPainted(false);
         btnTim.setBackground(Color.WHITE);
         btnTim.addActionListener(e -> timMon());
+
         pnlTim.add(txtTimKiem, BorderLayout.CENTER);
         pnlTim.add(btnTim, BorderLayout.EAST);
-
-        pnlTop.add(pnlLoai, BorderLayout.WEST);
+        
+        JPanel pnlTop = new JPanel(new BorderLayout(8, 0));
+        pnlTop.setBackground(Color.WHITE);
+        pnlTop.add(pnlLoaiMonNavbar, BorderLayout.WEST);
         pnlTop.add(pnlTim, BorderLayout.EAST);
-
+        
         pnlDanhSachMon = new JPanel(new GridLayout(0, 3, 10, 12));
         pnlDanhSachMon.setBackground(Color.WHITE);
         pnlDanhSachMon.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
@@ -490,6 +504,7 @@ public class GoiMon_GUI extends JPanel {
         panel.add(cuon, BorderLayout.CENTER);
         return panel;
     }
+    // END: Sửa Navbar
     
     private void hienThiMonAn(List<MonAn> ds) {
         pnlDanhSachMon.removeAll(); 
@@ -525,7 +540,7 @@ public class GoiMon_GUI extends JPanel {
         lblAnh.setHorizontalAlignment(SwingConstants.CENTER);
         if (imagePath == null || imagePath.trim().isEmpty()) {
             lblAnh.setText("Ảnh CSDL (null)");
-            imagePath = "default.png"; // Gán ảnh mặc định nếu có
+            imagePath = "default.png"; 
         }
         
         String internalImagePath = "/image/" + imagePath.trim();
@@ -589,9 +604,11 @@ public class GoiMon_GUI extends JPanel {
 
         pnlDanhSachMon.add(item);
     }
+
+    // START: Sửa phần giỏ hàng
     private JPanel taoKhuVucGioHang() {
         JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS)); 
         panel.setBackground(Color.WHITE);
         panel.setPreferredSize(new Dimension(420, 0));
         panel.setBorder(BorderFactory.createCompoundBorder(
@@ -608,8 +625,20 @@ public class GoiMon_GUI extends JPanel {
 
         DefaultTableCellRenderer canGiua = new DefaultTableCellRenderer();
         canGiua.setHorizontalAlignment(JLabel.CENTER);
-        for (int i = 0; i < 4; i++)
-            tblMonDangGoi.getColumnModel().getColumn(i).setCellRenderer(canGiua);
+        
+        tblMonDangGoi.getColumnModel().getColumn(0).setCellRenderer(canGiua);
+        tblMonDangGoi.getColumnModel().getColumn(1).setCellRenderer(canGiua);
+        tblMonDangGoi.getColumnModel().getColumn(3).setCellRenderer(canGiua);
+
+        // Áp dụng SpinnerCellRenderer và SpinnerCellEditor cho cột Số Lượng (index 2)
+        tblMonDangGoi.getColumnModel().getColumn(2).setCellRenderer(new SpinnerCellRenderer());
+        tblMonDangGoi.getColumnModel().getColumn(2).setCellEditor(new SpinnerCellEditor());
+        
+        tblMonDangGoi.getColumnModel().getColumn(0).setPreferredWidth(30);  
+        tblMonDangGoi.getColumnModel().getColumn(1).setPreferredWidth(120); 
+        tblMonDangGoi.getColumnModel().getColumn(2).setPreferredWidth(70);  
+        tblMonDangGoi.getColumnModel().getColumn(3).setPreferredWidth(90);  
+        tblMonDangGoi.getColumnModel().getColumn(4).setPreferredWidth(60);  
 
         tblMonDangGoi.getColumnModel().getColumn(4).setCellRenderer(new NutRenderer("Xóa", new Color(220,53,69)));
         tblMonDangGoi.getColumnModel().getColumn(4).setCellEditor(new NutEditor(new JCheckBox(), "Xóa", new Color(220,53,69), (row) -> {
@@ -674,7 +703,6 @@ public class GoiMon_GUI extends JPanel {
         panel.add(new JSeparator());
         panel.add(Box.createVerticalStrut(8));
 
-        // --- KHU VỰC MÓN ĐÃ GỌI VÀ TỔNG TIỀN CỘNG DỒN ---
         panel.add(lblTieuDeDaGoi);
         panel.add(Box.createVerticalStrut(8));
 
@@ -698,7 +726,6 @@ public class GoiMon_GUI extends JPanel {
         panel.add(cuon2);
         panel.add(Box.createVerticalStrut(8));
 
-        // TỔNG TIỀN CUỐI CÙNG (CỘNG DỒN)
         JPanel pnlTong = new JPanel(new BorderLayout());
         pnlTong.setBackground(Color.WHITE);
         JLabel lblTxtTong = new JLabel("Tổng tiền hóa đơn");
@@ -723,10 +750,8 @@ public class GoiMon_GUI extends JPanel {
 
         return panel;
     }
+    // END: Sửa phần giỏ hàng
     
-
-// --- CÁC LỚP RENDERER 
-
 
     class NutRenderer extends JButton implements TableCellRenderer {
         public NutRenderer(String text, Color color) {
@@ -767,24 +792,86 @@ public class GoiMon_GUI extends JPanel {
             return null;
         }
     }
+    
+    // START: Thêm lớp SpinnerCellRenderer
+    class SpinnerCellRenderer extends JSpinner implements TableCellRenderer {
 
-//    public static void main(String[] args) throws SQLException {
-//        // ⚠️ Mở kết nối trước khi khởi tạo GUI
-//        ConnectDB.getConnection(); 
-//
-//        JFrame f = new JFrame("Gọi món");
-//        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        f.setSize(1200, 720);
-//        f.setLocationRelativeTo(null);
-//        f.setContentPane(new GoiMontest_GUI("B001"));
-//        f.setVisible(true);
-//        
-//        // ⚠️ Đóng kết nối khi ứng dụng thoát
-//        f.addWindowListener(new WindowAdapter() {
-//            @Override
-//            public void windowClosing(WindowEvent e) {
-//                ConnectDB.disconnect();
-//            }
-//        });
-//    }
+        public SpinnerCellRenderer() {
+            setModel(new SpinnerNumberModel(1, 1, 999, 1));
+            JFormattedTextField textField = ((JSpinner.DefaultEditor) this.getEditor()).getTextField();
+            textField.setHorizontalAlignment(JTextField.CENTER);
+            textField.setEditable(false); 
+            setFont(new Font("Arial", Font.BOLD, 12));
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            if (value instanceof Integer) {
+                setValue(value);
+            }
+            if (isSelected) {
+                setBorder(BorderFactory.createLineBorder(table.getSelectionBackground(), 2));
+            } else {
+                setBorder(BorderFactory.createLineBorder(table.getBackground(), 2));
+            }
+            return this;
+        }
+    }
+    // END: Thêm lớp SpinnerCellRenderer
+    
+    // START: Thêm lớp SpinnerCellEditor
+    class SpinnerCellEditor extends AbstractCellEditor implements TableCellEditor {
+        private JSpinner spinner;
+        private JPanel editorComponent;
+
+        public SpinnerCellEditor() {
+            spinner = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
+            spinner.addChangeListener(e -> {
+                try {
+                    SwingUtilities.invokeLater(() -> stopCellEditing());
+                } catch (Exception ex) {
+                }
+            });
+
+            JPanel pnl = new JPanel(new BorderLayout());
+            pnl.add(spinner, BorderLayout.CENTER);
+            editorComponent = pnl;
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            if (value instanceof Integer) {
+                spinner.setValue(value);
+            }
+            return editorComponent;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return spinner.getValue();
+        }
+        
+        @Override
+        public boolean stopCellEditing() {
+            try {
+                int row = tblMonDangGoi.getEditingRow();
+                if (row >= 0) {
+                    String tenMon = (String) modelMonDangGoi.getValueAt(row, 1);
+                    int newValue = (Integer) spinner.getValue(); 
+
+                    if (newValue <= 0) { 
+                        xoaKhoiGio(tenMon);
+                    } else {
+                        gioHang.put(tenMon, newValue); 
+                        capNhatBangGio(); 
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+            return super.stopCellEditing();
+        }
+    }
+    // END: Thêm lớp SpinnerCellEditor
 }
