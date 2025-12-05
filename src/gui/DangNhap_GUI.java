@@ -111,10 +111,26 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
 
 	    if (o == btnDangNhap) {
 	        TaiKhoan_DAO dao = new TaiKhoan_DAO();
-	        String user = txtTenDN.getText().trim();
-	        String pass = new String(txtMatKhau.getPassword());
+	        String userInput = txtTenDN.getText();
+	        String passInput = new String(txtMatKhau.getPassword());
 
-	        TaiKhoan tk = dao.dangNhap(user, pass);   // 🔥 SỬA DUY NHẤT 1 DÒNG
+	        // Nếu người dùng nhập thêm khoảng trắng đầu/cuối → báo lỗi
+	        if (!userInput.equals(userInput.trim())) {
+	            JOptionPane.showMessageDialog(this,
+	                "Tên đăng nhập không được chứa khoảng trắng!",
+	                "Lỗi", JOptionPane.ERROR_MESSAGE);
+	            return;
+	        }
+
+	        if (!passInput.equals(passInput.trim())) {
+	            JOptionPane.showMessageDialog(this,
+	                "Mật khẩu không được chứa khoảng trắng!",
+	                "Lỗi", JOptionPane.ERROR_MESSAGE);
+	            return;
+	        }
+
+	        // Dùng chuỗi nguyên bản (không trim) để đăng nhập
+	        TaiKhoan tk = dao.dangNhap(userInput, passInput);
 
 	        if (tk != null) {
 	            DangNhap_GUI.taiKhoanDangNhap = tk;   // 🔥 LƯU TÀI KHOẢN ĐĂNG NHẬP
