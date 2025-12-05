@@ -144,7 +144,7 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
 	        }
 	    }
 
-
+//
 	    if (o == btnQMK){
 	    	 new QuenMatKhau_GUI();
 	    }
