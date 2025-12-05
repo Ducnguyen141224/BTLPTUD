@@ -522,7 +522,7 @@ public class GoiMon_GUI extends JPanel {
         pnlDanhSachMon.repaint();
     }
     
-    
+    //
     private void themMon(String ten, int gia, String imagePath) { 
         JPanel item = new JPanel(new BorderLayout(6,6));
         item.setBackground(Color.WHITE);
