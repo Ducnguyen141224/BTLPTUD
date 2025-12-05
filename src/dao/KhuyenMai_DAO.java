@@ -61,9 +61,11 @@ public class KhuyenMai_DAO {
     }
 
     // 2. Thêm khuyến mãi mới
+ // 2. Thêm khuyến mãi mới - ĐÃ SỬA LỖI THIẾU maQL
     public boolean themKhuyenMai(KhuyenMai km) {
         int n = 0;
-        String sql = "INSERT INTO KHUYENMAI (maKM, tenKM, moTa, phanTramGiam, ngayBatDau, ngayKetThuc) VALUES (?, ?, ?, ?, ?, ?)";
+        // Thêm cột maQL vào câu lệnh INSERT và thêm 1 dấu ?
+        String sql = "INSERT INTO KHUYENMAI (maKM, tenKM, moTa, phanTramGiam, ngayBatDau, ngayKetThuc, maQL) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection con = ConnectDB.getConnection(); 
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -74,6 +76,10 @@ public class KhuyenMai_DAO {
             ps.setDouble(4, km.getPhanTramGiam());
             ps.setDate(5, Date.valueOf(km.getNgayBatDau()));
             ps.setDate(6, Date.valueOf(km.getNgayKetThuc()));
+            
+   
+            String maQL = "QL001";
+            ps.setString(7, maQL); 
 
             n = ps.executeUpdate();
             
@@ -194,4 +200,42 @@ public class KhuyenMai_DAO {
         
         return dsKhuyenMai;
     }
+ // Lấy danh sách khuyến mãi đang có hiệu lực
+ // Trong file dao/KhuyenMai_DAO.java
+
+    public ArrayList<KhuyenMai> getKhuyenMaiDangDienRa() {
+        ArrayList<KhuyenMai> dsKM = new ArrayList<>();
+        
+        // Câu lệnh SQL lấy các khuyến mãi đang diễn ra (Ngày bắt đầu <= Hiện tại <= Ngày kết thúc)
+        String sql = "SELECT * FROM KHUYENMAI WHERE ngayBatDau <= GETDATE() AND ngayKetThuc >= GETDATE()";
+
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                String maKM = rs.getString("maKM");
+                String tenKM = rs.getString("tenKM");
+                String moTa = rs.getString("moTa");
+                
+                // --- LỖI Ở ĐÂY: Bạn đang để là "GiaTriGiam" ---
+                // --- SỬA THÀNH: "phanTramGiam" ---
+                double phanTram = rs.getDouble("phanTramGiam"); 
+
+                LocalDate ngayBD = rs.getDate("ngayBatDau").toLocalDate();
+                LocalDate ngayKT = rs.getDate("ngayKetThuc").toLocalDate();
+                
+                // Nếu constructor của bạn có maQL/NhanVien thì thêm vào, nếu không thì null hoặc bỏ qua
+                // Giả sử constructor giống các hàm trên:
+                KhuyenMai km = new KhuyenMai(maKM, tenKM, moTa, phanTram, ngayBD, ngayKT);
+                dsKM.add(km);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return dsKM;
+    }
+
+
 }

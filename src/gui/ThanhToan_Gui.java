@@ -38,7 +38,9 @@ import java.awt.print.PrinterJob;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
-
+import dao.KhuyenMai_DAO;
+import entity.KhuyenMai;
+import java.util.ArrayList;
 
 import java.io.File;
 import java.io.InputStream;
@@ -65,7 +67,7 @@ public class ThanhToan_Gui extends JPanel {
     private JLabel lblGiamGiaHienTai; 
     private JLabel lblQR; 
     private JPanel pnlGoiYContainer; 
-
+    private KhuyenMai khuyenMaiDaChon = null;
     private double soTienKhachDua = 0;
     private String hinhThucThanhToan = "Tiền mặt"; 
     private JButton btnTienMat, btnBank, btnMoMo; 
@@ -292,7 +294,7 @@ public class ThanhToan_Gui extends JPanel {
         JButton btnKhuyenMai = new JButton("Khuyến mãi");
         btnKhuyenMai.setBackground(new Color(255, 193, 7));
         btnKhuyenMai.setFocusPainted(false);
-        
+        btnKhuyenMai.addActionListener(e -> xuLyChonKhuyenMai());
         pnlGiamGia.add(btnChietKhau);
         pnlGiamGia.add(btnKhuyenMai);
         
@@ -645,7 +647,7 @@ public class ThanhToan_Gui extends JPanel {
             hd.setNhanVien(nhanVienHienTai);
             hd.setBan(new Ban(maBan));
             hd.setBanDat(null);
-            hd.setKhuyenMai(null);
+            hd.setKhuyenMai(this.khuyenMaiDaChon);
             hd.setTheThanhVien(null);
 
             ArrayList<CT_HoaDon> dsCT = new ArrayList<>();
@@ -773,7 +775,13 @@ public class ThanhToan_Gui extends JPanel {
     private void capNhatTongKet() {
         lblTongTienHoaDon.setText(dinhDangTien.format(tongTienSauGiamGia) + " VND");
         lblGiamGiaHienTai.setText(dinhDangTien.format(giamGia) + " VND");
-        
+        if (khuyenMaiDaChon != null) {
+            // Nếu có khuyến mãi, hiển thị kèm %
+            lblGiamGiaHienTai.setText(dinhDangTien.format(giamGia) + " VND (" + khuyenMaiDaChon.getPhanTramGiam() * 100 + "%)");
+        } else {
+            lblGiamGiaHienTai.setText(dinhDangTien.format(giamGia) + " VND");
+        }
+        lblGiamGiaHienTai.setForeground(new Color(220, 53, 69));
         capNhatTrangThaiNutThanhToan();
     }
  // ===============================================
@@ -971,6 +979,72 @@ public class ThanhToan_Gui extends JPanel {
              lblQR.setIcon(null);
              lblQR.setText("LỖI: Thiếu file Zxing JAR!");
              System.err.println("Lỗi QR Code: Vui lòng kiểm tra đã thêm core.jar và javase.jar chưa.");
+        }
+    }
+    private void xuLyChonKhuyenMai() {
+        KhuyenMai_DAO kmDAO = new KhuyenMai_DAO();
+        
+        // 1. Gọi hàm lấy danh sách đang diễn ra từ DAO của bạn
+        ArrayList<KhuyenMai> dsKM = kmDAO.getKhuyenMaiDangDienRa(); 
+
+        // 2. Kiểm tra nếu không có khuyến mãi nào
+        if (dsKM == null || dsKM.isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "Hiện tại không có chương trình khuyến mãi nào đang diễn ra!", 
+                "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // 3. Tạo danh sách hiển thị cho Popup (ComboBox)
+        // Hiển thị dạng: "Mã - Tên (Giảm X%)"
+        String[] options = new String[dsKM.size()];
+        for (int i = 0; i < dsKM.size(); i++) {
+            KhuyenMai km = dsKM.get(i);
+            options[i] = String.format("%s - %s (Giảm %.0f%%)", 
+                                       km.getMaKM(), km.getTenKM(), km.getPhanTramGiam() * 100);
+        }
+
+        // 4. Hiển thị Popup cho người dùng chọn
+        String luaChon = (String) JOptionPane.showInputDialog(
+                this,
+                "Chọn chương trình khuyến mãi áp dụng:",
+                "Danh sách khuyến mãi",
+                JOptionPane.QUESTION_MESSAGE,
+                null, // Icon mặc định
+                options,
+                options[0] // Chọn mặc định phần tử đầu
+        );
+
+        // 5. Xử lý sau khi chọn
+        if (luaChon != null) {
+            // Tìm lại đối tượng KhuyenMai dựa trên chuỗi đã chọn
+            for (int i = 0; i < options.length; i++) {
+                if (options[i].equals(luaChon)) {
+                    this.khuyenMaiDaChon = dsKM.get(i); // Lưu đối tượng KM
+                    break;
+                }
+            }
+
+            // Tính toán số tiền giảm
+            if (this.khuyenMaiDaChon != null) {
+                double phanTram = this.khuyenMaiDaChon.getPhanTramGiam();
+                
+                // Tính tiền giảm dựa trên tổng tiền ban đầu
+                this.giamGia = this.tongTienHoaDonBanDau * (phanTram);
+                
+                // Cập nhật lại giao diện
+                capNhatTongTien();
+                
+                // Nếu đang chọn Bank/Momo thì cập nhật luôn số tiền khách trả
+                if (!hinhThucThanhToan.equals("Tiền mặt")) {
+                    soTienKhachDua = tongTienSauGiamGia;
+                    txtKhachDua.setText(dinhDangTien.format(soTienKhachDua));
+                }
+
+                JOptionPane.showMessageDialog(this, 
+                    "Đã áp dụng: " + khuyenMaiDaChon.getTenKM(), 
+                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            }
         }
     }
 }
