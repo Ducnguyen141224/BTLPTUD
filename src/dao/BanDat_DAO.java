@@ -321,12 +321,15 @@ public class BanDat_DAO {
             }
         }
     }
+ 
+
     public double getTienCocByActiveMaBan(String maBan) {
         double tienCoc = 0;
         Connection con = ConnectDB.getConnection();
         
-        // Tìm bản ghi BANDAT đang hoạt động (chưa thanh toán/hủy) cho bàn này
-        String sql = "SELECT tienCoc FROM BANDAT WHERE maBan = ? "; //AND trangThai IN (N'Đang sử dụng', N'Đã đặt', N'Trống')";
+        // ⭐ ĐÃ SỬA: Chỉ lấy bản ghi có trạng thái Đang sử dụng (bản ghi đang gắn với hóa đơn hiện tại)
+        // Hoặc có thể thêm cả 'Đã đặt' nếu bạn muốn lấy tiền cọc của lần đặt sắp tới cho bàn đó.
+        String sql = "SELECT TOP 1 tienCoc FROM BANDAT WHERE maBan = ? AND trangThai = N'Đang sử dụng' ORDER BY ngayDat DESC, gioDat DESC";
         
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);

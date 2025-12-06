@@ -351,7 +351,7 @@ public class GoiMon_GUI extends JPanel {
 
         parentFrame.setVisible(false);
         GoiMon_GUI currentGui = this; 
-        System.out.println("Mã bàn hiện tại: " + this.maBanHienTai);
+//        System.out.println("Mã bàn hiện tại: " + this.maBanHienTai);
         double tienCoc = 0;
         try {
             

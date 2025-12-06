@@ -433,6 +433,9 @@
 	    /**
 	     * Xử lý nghiệp vụ Check-in: Cập nhật trạng thái đặt bàn và chuyển sang Gọi Món.
 	     */
+	    /**
+	     * Xử lý nghiệp vụ Check-in: Cập nhật trạng thái đặt bàn và chuyển sang Gọi Món.
+	     */
 	    private void checkInDatBan() {
 	        String maDatBan = txtMaDatBan.getText().trim();
 	        if (maDatBan.isEmpty()) {
@@ -447,6 +450,22 @@
 	        if (banDat == null) return;
 
 	        String maBan = banDat.getBan().getMaBan();
+	        
+	        // --- 🔍 THÊM ĐOẠN KIỂM TRA TRẠNG THÁI BÀN Ở ĐÂY ---
+	        // Lấy thông tin mới nhất của bàn từ CSDL để đảm bảo chính xác
+	        Ban banHienTai = banDAO.getBanById(maBan);
+	        
+	        // Kiểm tra nếu bàn KHÔNG phải trạng thái "Trống" hoặc "Đã đặt" (tức là đang có khách hoặc bận)
+	        // Tuy nhiên, logic thường thấy là: nếu bàn "Đã đặt" cho chính đơn này thì check-in được.
+	        // Nhưng nếu bàn đang "Đang sử dụng" bởi đơn khác thì phải chặn.
+	        if ("Đang sử dụng".equals(banHienTai.getTrangThai())) {
+	             JOptionPane.showMessageDialog(this,
+	                    "Bàn " + maBan + " hiện đang có khách (Trạng thái: Đang sử dụng).\nKhông thể Check-in vào lúc này!",
+	                    "Bàn đang bận",
+	                    JOptionPane.ERROR_MESSAGE);
+	            return;
+	        }
+	        // --- KẾT THÚC ĐOẠN KIỂM TRA ---
 
 	        int confirm = JOptionPane.showConfirmDialog(this,
 	                "Xác nhận Check-in cho đơn: " + maDatBan +
@@ -454,7 +473,7 @@
 	                "Xác nhận Check-in",
 	                JOptionPane.YES_NO_OPTION);
 
-	        if (confirm != JOptionPane.YES_OPTION) {
+	        if (confirm != JOptionPane.YES_NO_OPTION) {
 	            return;
 	        }
 
@@ -489,7 +508,6 @@
 	                "Thành công",
 	                JOptionPane.INFORMATION_MESSAGE);
 	    }
-
 	
 	    private void timKiemVaLoc() {
 	        String tuKhoa = txtTimKiem.getText().trim().toLowerCase();

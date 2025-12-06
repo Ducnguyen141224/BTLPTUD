@@ -75,7 +75,7 @@ public class ThanhToan_Gui extends JPanel {
     private double giamGia = 0; 
     private double tienCoc = 0; 
     private double tongTienSauGiamGia = 0; 
-    
+    private boolean daThanhToanXong = false;
     private String maBan;
     private NhanVien nhanVienHienTai;
     private String maHoaDon;
@@ -109,8 +109,8 @@ public class ThanhToan_Gui extends JPanel {
         
         lblBack.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                ((JFrame) SwingUtilities.getWindowAncestor(ThanhToan_Gui.this)).dispose();
+            public void mouseClicked(MouseEvent e) {            
+                xuLyDongCuaSo(); 
             }
         });
         
@@ -419,15 +419,40 @@ public class ThanhToan_Gui extends JPanel {
         JButton btnHuy = new JButton("Hủy");
         btnHuy.setBackground(new Color(220, 53, 69));
         btnHuy.setForeground(Color.WHITE);
-        btnHuy.addActionListener(e -> ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose()); 
+        btnHuy.addActionListener(e -> xuLyDongCuaSo());
         
         JButton btnXacNhan = new JButton("Xác nhận và in hóa đơn");
         btnXacNhan.setBackground(new Color(40, 167, 69));
         btnXacNhan.setForeground(Color.WHITE);
         btnXacNhan.addActionListener(e -> {
-        	this.gioRa = LocalTime.now(); 
-        	inHoaDonTrucTiep(); //in máy in
-            inHoaDon();       // lưu DB (giữ nguyên của bạn)
+            this.gioRa = LocalTime.now(); 
+            
+            // Chỉ tiếp tục in, thông báo và đóng cửa sổ nếu lưu DB thành công
+            if (inHoaDon()) { 
+                inHoaDonTrucTiep(); // In máy in (Giữ nguyên)
+                
+                // Hiển thị thông báo thành công (Logic này đã được chuyển từ hàm inHoaDon cũ)
+                String thongBao = String.format(
+                    "Thanh toán thành công!\n\n" +
+                    "Tổng tiền HĐ: %s VND\n" +
+                    "Giảm giá: %s VND\n" +
+                    "Phải thu: %s VND\n" +
+                    "Hình thức: %s\n" +
+                    "Khách đưa: %s VND\n" +
+                    "Tiền thừa: %s VND\n",
+                    dinhDangTien.format(tongTienHoaDonBanDau),
+                    dinhDangTien.format(giamGia),
+                    dinhDangTien.format(tongTienSauGiamGia),
+                    hinhThucThanhToan,
+                    dinhDangTien.format(soTienKhachDua),
+                    dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia)
+                );
+
+                JOptionPane.showMessageDialog(this, thongBao, "Hóa đơn", JOptionPane.INFORMATION_MESSAGE);
+                
+                // Đóng cửa sổ
+                ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
+            }
         });
 
         pnlNut.add(btnHuy);
@@ -438,6 +463,31 @@ public class ThanhToan_Gui extends JPanel {
         return panel;
     }
 
+ // Sửa hàm xuLyDongCuaSo() của bạn:
+
+ // Giữ nguyên phương thức này, nó xử lý cho nút 'Hủy' và nút '←'
+    public void xuLyDongCuaSo() {
+        // ⭐ Kiểm tra biến cờ daThanhToanXong
+        if (!daThanhToanXong) {
+            // Chưa thanh toán, hỏi xác nhận hủy
+            int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Hóa đơn chưa được xác nhận thanh toán. Bạn có muốn hủy tiến trình thanh toán và quay lại màn hình gọi món?",
+                "Xác nhận Hủy Thanh Toán",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                // Đóng cửa sổ
+                ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
+            }
+            // Nếu chọn NO, cửa sổ vẫn còn (return)
+        } else {
+            // Đã thanh toán, chỉ cần đóng
+            ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
+        }
+    }
     private JPanel taoKhuVucTongKet() {
         JPanel panel = new JPanel(new GridLayout(8, 2, 0, 5));
         panel.setBackground(Color.WHITE);
@@ -622,7 +672,9 @@ public class ThanhToan_Gui extends JPanel {
  // Trong ThanhToan_Gui.java
 
  // Trong ThanhToan_Gui.java
-    private void inHoaDon() {
+ // Trong ThanhToan_Gui.java
+
+    private boolean inHoaDon() {
 
         // 1. Kiểm tra tiền khách đưa (chỉ áp dụng với Tiền mặt)
         if (hinhThucThanhToan.equals("Tiền mặt") && soTienKhachDua < tongTienSauGiamGia) {
@@ -630,7 +682,7 @@ public class ThanhToan_Gui extends JPanel {
                     "Số tiền khách đưa không đủ!",
                     "Lỗi Thanh Toán",
                     JOptionPane.ERROR_MESSAGE);
-            return;
+            return false; // Trả về false nếu không đủ tiền
         }
 
         // 2. Lưu hóa đơn xuống DB
@@ -642,31 +694,32 @@ public class ThanhToan_Gui extends JPanel {
             String maHD = hdDAO.layMaHDTiepTheo();
             this.maHoaDon = maHD;
             HoaDon hd = new HoaDon(maHD);
+            
+            // Cần lấy BanDat đang sử dụng để gán cho HoaDon (nếu có)
+            BanDat_DAO bdDAO_temp = new BanDat_DAO();
+            BanDat bd_dangSuDung = bdDAO_temp.getBanDatDangSuDung(maBan);
+            hd.setBanDat(bd_dangSuDung); // ⭐ Cập nhật: Gán BanDat đang hoạt động
 
             hd.setNgayLap(LocalDateTime.now());
             hd.setNhanVien(nhanVienHienTai);
             hd.setBan(new Ban(maBan));
-            hd.setBanDat(null);
             hd.setKhuyenMai(this.khuyenMaiDaChon);
             hd.setTheThanhVien(null);
 
             ArrayList<CT_HoaDon> dsCT = new ArrayList<>();
 
             for (Map.Entry<String, Integer> item : gioHangXacNhan.entrySet()) {
-
                 String tenMon = item.getKey();
                 int soLuong = item.getValue();
-
                 MonAn mon = monDAO.getMonAnTheoTen(tenMon);
 
                 if (mon == null) {
                     JOptionPane.showMessageDialog(this,
-                            "Không tìm thấy món ăn trong DB: " + tenMon,
-                            "Lỗi dữ liệu",
-                            JOptionPane.ERROR_MESSAGE);
-                    return;
+                                "Không tìm thấy món ăn trong DB: " + tenMon,
+                                "Lỗi dữ liệu",
+                                JOptionPane.ERROR_MESSAGE);
+                    return false;
                 }
-
                 CT_HoaDon ct = new CT_HoaDon(hd, mon, soLuong);
                 dsCT.add(ct);
             }
@@ -677,26 +730,25 @@ public class ThanhToan_Gui extends JPanel {
 
             if (!ok) {
                 JOptionPane.showMessageDialog(this,
-                        "❌ Lưu hóa đơn thất bại!",
-                        "Lỗi database",
-                        JOptionPane.ERROR_MESSAGE);
-                return;
+                            "❌ Lưu hóa đơn thất bại!",
+                            "Lỗi database",
+                            JOptionPane.ERROR_MESSAGE);
+                return false;
             }
 
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this,
-                    "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
-                    "Lỗi",
-                    JOptionPane.ERROR_MESSAGE);
-            return;
+                        "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+            return false;
         }
 
         // =====================================================
-        // ⭐ 3. CẬP NHẬT TRẠNG THÁI BÀN + RESET GIỜ CHECK-IN
+        // ⭐ 3. CẬP NHẬT TRẠNG THÁI BÀN + RESET ĐẶT BÀN
         // =====================================================
         try {
-
             Ban_DAO banDAO = new Ban_DAO();
             BanDat_DAO bdDAO = new BanDat_DAO();
 
@@ -707,8 +759,7 @@ public class ThanhToan_Gui extends JPanel {
             BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
 
             if (bd != null) {
-
-                // Xóa giờ check-in
+                // Xóa giờ check-in (nếu còn)
                 bdDAO.updateGioCheckIn(bd.getMaDatBan(), null);
 
                 // Chuyển trạng thái đặt bàn
@@ -720,35 +771,12 @@ public class ThanhToan_Gui extends JPanel {
 
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                    "Lỗi khi cập nhật trạng thái bàn: " + e.getMessage(),
-                    "Lỗi",
-                    JOptionPane.ERROR_MESSAGE);
+            // Lỗi cập nhật trạng thái bàn/đặt bàn không nên ngăn thanh toán hoàn tất
+            // (chỉ log lỗi và tiếp tục)
         }
-
-        // =====================================================
-
-        // 4. Hiển thị thông báo thanh toán
-        String thongBao = String.format(
-                "Thanh toán thành công!\n\n" +
-                "Tổng tiền HĐ: %s VND\n" +
-                "Giảm giá: %s VND\n" +
-                "Phải thu: %s VND\n" +
-                "Hình thức: %s\n" +
-                "Khách đưa: %s VND\n" +
-                "Tiền thừa: %s VND\n",
-                dinhDangTien.format(tongTienHoaDonBanDau),
-                dinhDangTien.format(giamGia),
-                dinhDangTien.format(tongTienSauGiamGia),
-                hinhThucThanhToan,
-                dinhDangTien.format(soTienKhachDua),
-                dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia)
-        );
-
-        JOptionPane.showMessageDialog(this, thongBao, "Hóa đơn", JOptionPane.INFORMATION_MESSAGE);
-
-        // 5. Đóng cửa sổ
-        ((JFrame) SwingUtilities.getWindowAncestor(this)).dispose();
+        this.daThanhToanXong = true;
+        // ⭐ KHÔNG hiển thị thông báo và dispose() ở đây
+        return true; // Trả về thành công
     }
 
 

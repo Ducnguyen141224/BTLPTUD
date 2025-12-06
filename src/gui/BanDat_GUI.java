@@ -633,9 +633,9 @@ public class BanDat_GUI extends JPanel {
             BanDat banDatHienTai = banDatDAO.getBanDatDangSuDung(maBan);
 
             if (banDatHienTai != null) {
-                System.out.println("--- BÀN ĐANG SỬ DỤNG ---");
-                System.out.println("Mã đặt bàn: " + banDatHienTai.getMaDatBan());
-                System.out.println("Giờ check-in: " + banDatHienTai.getGioCheckIn());
+//                System.out.println("--- BÀN ĐANG SỬ DỤNG ---");
+//                System.out.println("Mã đặt bàn: " + banDatHienTai.getMaDatBan());
+//                System.out.println("Giờ check-in: " + banDatHienTai.getGioCheckIn());
             }
 
             // ============================
@@ -718,7 +718,7 @@ public class BanDat_GUI extends JPanel {
         JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
         
         if (parentFrame != null) {
-            parentFrame.setVisible(false); // Ẩn màn hình đặt bàn
+//            parentFrame.setVisible(false); // Ẩn màn hình đặt bàn
             
             // Tạo frame gọi món mới
             JFrame goiMonFrame = new JFrame("Gọi Món - Bàn " + maBan);
