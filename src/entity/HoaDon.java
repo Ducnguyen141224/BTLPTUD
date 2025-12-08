@@ -167,6 +167,27 @@ public class HoaDon {
     public void setKhuyenMai(KhuyenMai khuyenMai) {
         this.khuyenMai = khuyenMai;
     }
+    public double tinhTongGiamGia() {
+        double giamTV = 0;
+        double giamKM = 0;
+        double tong = this.tinhTongTien(); // hàm có sẵn trong HoaDon
+
+        // Giảm theo thẻ thành viên
+        if (theThanhVien != null && theThanhVien.getLoaiHang() != null) {
+            switch (theThanhVien.getLoaiHang()) {
+                case "Kim cương": giamTV = tong * 0.15; break;
+                case "Vàng": giamTV = tong * 0.12; break;
+                default: giamTV = tong * 0.10; break;
+            }
+        }
+
+        // Giảm theo khuyến mãi
+        if (khuyenMai != null) {
+            giamKM = tong * khuyenMai.getPhanTramGiam();
+        }
+
+        return giamTV + giamKM;
+    }
     
     @Override
     public String toString() {

@@ -14,13 +14,17 @@ import dao.BanDat_DAO;
 import dao.Ban_DAO;
 import dao.CTHoaDon_DAO;
 import dao.HoaDon_DAO;
+import dao.KhachHang_DAO;
 import dao.MonAn_DAO;
+import dao.TheThanhVien_DAO;
 import entity.Ban;
 import entity.BanDat;
 import entity.CT_HoaDon;
 import entity.HoaDon;
+import entity.KhachHang;
 import entity.MonAn;
 import entity.NhanVien;
+import entity.TheThanhVien;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -44,6 +48,7 @@ import java.util.ArrayList;
 
 import java.io.File;
 import java.io.InputStream;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -81,6 +86,7 @@ public class ThanhToan_Gui extends JPanel {
     private String maHoaDon;
     private LocalTime gioVao;
     private LocalTime gioRa;
+    private TheThanhVien theThanhVienDangChon = null;
     
     public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2, String maBan, NhanVien nhanVien, LocalTime gioVao) {
     	this.maHoaDon = new HoaDon_DAO().layMaHDTiepTheo();
@@ -138,6 +144,28 @@ public class ThanhToan_Gui extends JPanel {
         capNhatTongTien(); 
         capNhatTrangThaiNutThanhToan(); 
         taoVaHienThiQRCode(); 
+        try {
+            BanDat_DAO bdDAO = new BanDat_DAO();
+            BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
+
+            if (bd != null && bd.getKhachHang() != null) {
+                String maKH = bd.getKhachHang().getMaKH();
+                TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
+                theThanhVienDangChon = ttvDAO.layTheTheoMaKH(maKH);
+
+                if (theThanhVienDangChon != null) {
+                    double pt = 0;
+                    switch (theThanhVienDangChon.getLoaiHang()) {
+                        case "Kim cương": pt = 0.15; break;
+                        case "Vàng": pt = 0.12; break;
+                        default: pt = 0.10; break; // Bạc
+                    }
+                    giamGia = tongTienHoaDonBanDau * pt;
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
     
     // ----------------------------------------------------------------------
@@ -145,8 +173,16 @@ public class ThanhToan_Gui extends JPanel {
     // ----------------------------------------------------------------------
     
     private void capNhatTongTien() {
-    	
-    	
+    	// Áp dụng giảm giá thẻ thành viên (nếu có)
+    	if (theThanhVienDangChon != null) {
+    	    double pt = 0;
+    	    switch (theThanhVienDangChon.getLoaiHang()) {
+    	        case "Kim cương": pt = 0.15; break;
+    	        case "Vàng": pt = 0.12; break;
+    	        default: pt = 0.10; break;
+    	    }
+    	    giamGia = tongTienHoaDonBanDau * pt;
+    	}
         this.tongTienSauGiamGia = this.tongTienHoaDonBanDau - this.giamGia - this.tienCoc;
         
         if (this.tongTienSauGiamGia < 0) {
@@ -668,12 +704,6 @@ public class ThanhToan_Gui extends JPanel {
     }
     
  // Trong ThanhToan_Gui.java
-
- // Trong ThanhToan_Gui.java
-
- // Trong ThanhToan_Gui.java
- // Trong ThanhToan_Gui.java
-
     private boolean inHoaDon() {
 
         // 1. Kiểm tra tiền khách đưa (chỉ áp dụng với Tiền mặt)
@@ -682,101 +712,201 @@ public class ThanhToan_Gui extends JPanel {
                     "Số tiền khách đưa không đủ!",
                     "Lỗi Thanh Toán",
                     JOptionPane.ERROR_MESSAGE);
-            return false; // Trả về false nếu không đủ tiền
+            return false;
         }
 
-        // 2. Lưu hóa đơn xuống DB
+        KhachHang_DAO khDAO = new KhachHang_DAO();
+        TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
+        BanDat_DAO bdDAO = new BanDat_DAO();
+        TheThanhVien theTV = null;
+
+        // ⭐ LẤY ĐẶT BÀN
+        BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
+
+        // ⭐ TRƯỜNG HỢP 1: KHÁCH ĐẶT BÀN TRƯỚC (KHÔNG PHẢI KHÁCH VÀO TRỰC TIẾP)
+        if (bd != null 
+                && bd.getKhachHang() != null
+                && (bd.getGhiChu() == null 
+                    || !bd.getGhiChu().equalsIgnoreCase("Khách vào trực tiếp"))) {
+
+            KhachHang kh = bd.getKhachHang();
+
+            try {
+                theTV = ttvDAO.layTheTheoMaKH(kh.getMaKH());
+
+                if (theTV == null) {
+                    theTV = new TheThanhVien(ttvDAO.phatSinhMaThe(), kh, 0, "Bạc");
+                    ttvDAO.themTheThanhVien(theTV);
+                }
+
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this,
+                        "Lỗi lấy thẻ thành viên!\n" + ex.getMessage(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        // ⭐ TRƯỜNG HỢP 2: KHÁCH VÀO TRỰC TIẾP → HỎI SĐT (CÓ THỂ BỎ TRỐNG)
+        else {
+
+            String sdt = JOptionPane.showInputDialog(this,
+                    "Nhập SĐT để tích điểm (bỏ trống để bỏ qua):",
+                    "Tích điểm thẻ thành viên",
+                    JOptionPane.QUESTION_MESSAGE);
+
+            if (sdt != null && !sdt.trim().isEmpty()) {
+
+                sdt = sdt.trim();
+
+                try {
+                    KhachHang kh = khDAO.timKhachHangTheoSDT(sdt);
+
+                    if (kh == null) {
+                        String tenTam = JOptionPane.showInputDialog(this,
+                                "Nhập tên khách hàng:",
+                                "Khách mới",
+                                JOptionPane.QUESTION_MESSAGE);
+
+                        if (tenTam == null || tenTam.trim().isEmpty())
+                            tenTam = "Khách mới";
+
+                        KhachHang khMoi = new KhachHang(null, tenTam, sdt, "", false);
+                        khMoi = khDAO.themHoacLayKhachHang(khMoi);
+
+                        theTV = new TheThanhVien(ttvDAO.phatSinhMaThe(), khMoi, 0, "Bạc");
+                        ttvDAO.themTheThanhVien(theTV);
+
+                    } else {
+
+                        theTV = ttvDAO.layTheTheoMaKH(kh.getMaKH());
+
+                        if (theTV == null) {
+                            theTV = new TheThanhVien(ttvDAO.phatSinhMaThe(), kh, 0, "Bạc");
+                            ttvDAO.themTheThanhVien(theTV);
+                        }
+                    }
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(this,
+                            "Lỗi xử lý thẻ thành viên!\n" + ex.getMessage(),
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+
+        // ✔ Lưu vào biến GUI
+        theThanhVienDangChon = theTV;
+        double giamGiaThanhVien = 0;
+        double giamGiaKhuyenMai = 0;
+
+        // Giảm giá theo thẻ thành viên
+        if (theThanhVienDangChon != null) {
+            switch (theThanhVienDangChon.getLoaiHang()) {
+                case "Kim cương": giamGiaThanhVien = tongTienHoaDonBanDau * 0.15; break;
+                case "Vàng": giamGiaThanhVien = tongTienHoaDonBanDau * 0.12; break;
+                default: giamGiaThanhVien = tongTienHoaDonBanDau * 0.10; break;
+            }
+        }
+
+        // Giảm giá theo khuyến mãi
+        if (khuyenMaiDaChon != null) {
+            giamGiaKhuyenMai = tongTienHoaDonBanDau * khuyenMaiDaChon.getPhanTramGiam();
+        }
+
+        // Tổng giảm giá
+        double tongGiamGia = giamGiaThanhVien + giamGiaKhuyenMai;
+
+        // Tổng tiền cần thanh toán
+        tongTienSauGiamGia = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
+        if (tongTienSauGiamGia < 0) tongTienSauGiamGia = 0;
+
+        // Cập nhật lại biến giao diện
+        this.giamGia = tongGiamGia;
+
+
+        // =========================================================
+        // ⭐ 2. LƯU HÓA ĐƠN XUỐNG DATABASE
+        // =========================================================
         try {
             HoaDon_DAO hdDAO = new HoaDon_DAO();
-            CTHoaDon_DAO ctDAO = new CTHoaDon_DAO();
             MonAn_DAO monDAO = new MonAn_DAO();
 
             String maHD = hdDAO.layMaHDTiepTheo();
             this.maHoaDon = maHD;
+
             HoaDon hd = new HoaDon(maHD);
-            
-            // Cần lấy BanDat đang sử dụng để gán cho HoaDon (nếu có)
-            BanDat_DAO bdDAO_temp = new BanDat_DAO();
-            BanDat bd_dangSuDung = bdDAO_temp.getBanDatDangSuDung(maBan);
-            hd.setBanDat(bd_dangSuDung); // ⭐ Cập nhật: Gán BanDat đang hoạt động
+
+            // Nếu có đặt bàn → gán vào hóa đơn
+            BanDat bdDangSuDung = bdDAO.getBanDatDangSuDung(maBan);
+            hd.setBanDat(bdDangSuDung);
 
             hd.setNgayLap(LocalDateTime.now());
             hd.setNhanVien(nhanVienHienTai);
             hd.setBan(new Ban(maBan));
             hd.setKhuyenMai(this.khuyenMaiDaChon);
-            hd.setTheThanhVien(null);
+            hd.setTheThanhVien(theThanhVienDangChon);
+
+            // === KHÔNG gọi tính giảm giá ở đây (DAO sẽ xử lý) ===
 
             ArrayList<CT_HoaDon> dsCT = new ArrayList<>();
 
             for (Map.Entry<String, Integer> item : gioHangXacNhan.entrySet()) {
-                String tenMon = item.getKey();
-                int soLuong = item.getValue();
-                MonAn mon = monDAO.getMonAnTheoTen(tenMon);
-
+                MonAn mon = monDAO.getMonAnTheoTen(item.getKey());
                 if (mon == null) {
                     JOptionPane.showMessageDialog(this,
-                                "Không tìm thấy món ăn trong DB: " + tenMon,
-                                "Lỗi dữ liệu",
-                                JOptionPane.ERROR_MESSAGE);
+                        "Không tìm thấy món ăn: " + item.getKey(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
                     return false;
                 }
-                CT_HoaDon ct = new CT_HoaDon(hd, mon, soLuong);
-                dsCT.add(ct);
+                dsCT.add(new CT_HoaDon(hd, mon, item.getValue()));
             }
 
             hd.setDanhSachChiTietHoaDon(dsCT);
 
-            boolean ok = hdDAO.themHoaDon(hd);
-
-            if (!ok) {
+            if (!hdDAO.themHoaDon(hd)) {
                 JOptionPane.showMessageDialog(this,
-                            "❌ Lưu hóa đơn thất bại!",
-                            "Lỗi database",
-                            JOptionPane.ERROR_MESSAGE);
+                    "❌ Lưu hóa đơn thất bại!",
+                    "Lỗi database",
+                    JOptionPane.ERROR_MESSAGE);
                 return false;
             }
 
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this,
-                        "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
+                "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
+                "Lỗi",
+                JOptionPane.ERROR_MESSAGE);
             return false;
         }
 
-        // =====================================================
-        // ⭐ 3. CẬP NHẬT TRẠNG THÁI BÀN + RESET ĐẶT BÀN
-        // =====================================================
+        // =========================================================
+        // ⭐ 3. CẬP NHẬT TRẠNG THÁI BÀN + ĐẶT BÀN
+        // =========================================================
         try {
             Ban_DAO banDAO = new Ban_DAO();
-            BanDat_DAO bdDAO = new BanDat_DAO();
-
-            // ⭐ 3.1 BÀN → TRỐNG
             banDAO.capNhatTrangThaiBan(maBan, "Trống");
 
-            // ⭐ 3.2 Lấy đặt bàn đang sử dụng (nếu có)
-            BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
+            BanDat bdUpdate = bdDAO.getBanDatDangSuDung(maBan);
 
-            if (bd != null) {
-                // Xóa giờ check-in (nếu còn)
-                bdDAO.updateGioCheckIn(bd.getMaDatBan(), null);
-
-                // Chuyển trạng thái đặt bàn
-                bd.setTrangThai("Hoàn thành");
-                bd.setGioCheckIn(null);
-
-                bdDAO.updateBanDat(bd);
+            if (bdUpdate != null) {
+                bdDAO.updateGioCheckIn(bdUpdate.getMaDatBan(), null);
+                bdUpdate.setTrangThai("Hoàn thành");
+                bdUpdate.setGioCheckIn(null);
+                bdDAO.updateBanDat(bdUpdate);
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            // Lỗi cập nhật trạng thái bàn/đặt bàn không nên ngăn thanh toán hoàn tất
-            // (chỉ log lỗi và tiếp tục)
         }
-        this.daThanhToanXong = true;
-        // ⭐ KHÔNG hiển thị thông báo và dispose() ở đây
-        return true; // Trả về thành công
+
+        daThanhToanXong = true;
+        return true;
     }
 
 
@@ -891,31 +1021,61 @@ public class ThanhToan_Gui extends JPanel {
                 g2.drawLine(10, y, 380, y);
                 y += 20;
 
-                // ====== TỔNG KẾT ======
+             // ====== TỔNG KẾT ======
                 g2.setFont(new Font("Arial", Font.BOLD, 12));
+
+                // Thành tiền
                 g2.drawString("Thành tiền:", 10, y);
                 g2.drawString(dinhDangTien.format(tongTienHoaDonBanDau), 300, y);
                 y += 18;
 
+                // === TÍNH GIẢM GIÁ ===
+                double giamGiaThanhVien = 0;
+                double giamGiaKhuyenMai = 0;
+
+                // Giảm giá thẻ thành viên
+                if (theThanhVienDangChon != null) {
+                    switch (theThanhVienDangChon.getLoaiHang()) {
+                        case "Kim cương": giamGiaThanhVien = tongTienHoaDonBanDau * 0.15; break;
+                        case "Vàng": giamGiaThanhVien = tongTienHoaDonBanDau * 0.12; break;
+                        default: giamGiaThanhVien = tongTienHoaDonBanDau * 0.10; break;
+                    }
+                }
+
+                // Giảm giá khuyến mãi
+                if (khuyenMaiDaChon != null) {
+                    giamGiaKhuyenMai = tongTienHoaDonBanDau * khuyenMaiDaChon.getPhanTramGiam();
+                }
+
+                // Tổng giảm giá
+                double tongGiamGia = giamGiaThanhVien + giamGiaKhuyenMai;
+
+                // In giảm giá
                 g2.drawString("Giảm giá:", 10, y);
-                g2.drawString(dinhDangTien.format(giamGia), 300, y);
+                g2.drawString(dinhDangTien.format(tongGiamGia), 300, y);
                 y += 18;
 
+                // Trừ cọc
                 g2.drawString("Trừ cọc:", 10, y);
                 g2.drawString(dinhDangTien.format(tienCoc), 300, y);
                 y += 18;
 
+                // Tổng tiền phải thu
+                double tongTienSauGiam = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
+                if (tongTienSauGiam < 0) tongTienSauGiam = 0;
+
                 g2.drawString("Tổng tiền:", 10, y);
-                g2.drawString(dinhDangTien.format(tongTienSauGiamGia), 300, y);
+                g2.drawString(dinhDangTien.format(tongTienSauGiam), 300, y);
                 y += 22;
 
-                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                // Khách đưa
                 g2.drawString("Khách đưa:", 10, y);
                 g2.drawString(dinhDangTien.format(soTienKhachDua), 300, y);
                 y += 18;
 
+                // Tiền thừa (dựa theo tổng tiền sau giảm)
                 g2.drawString("Tiền thừa:", 10, y);
-                g2.drawString(dinhDangTien.format(soTienKhachDua - tongTienSauGiamGia), 300, y);
+                g2.drawString(dinhDangTien.format(soTienKhachDua - tongTienSauGiam), 300, y);
                 y += 25;
 
                 // ====== CHÂN BILL ======

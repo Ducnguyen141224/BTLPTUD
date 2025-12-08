@@ -32,16 +32,23 @@ public class HoaDon_DAO {
         String maBan = rs.getString("maBan");
         String maDatBan = rs.getString("maDatBan");
         String maKM = rs.getString("maKM");
-        String trangThai = rs.getString("trangThaiThanhToan"); // Lấy thêm trạng thái
+        String trangThai = rs.getString("trangThaiThanhToan");
 
         Timestamp ngayLapTs = rs.getTimestamp("ngayLap");
         LocalDateTime ngayLap = ngayLapTs != null ? ngayLapTs.toLocalDateTime() : LocalDateTime.now();
 
         HoaDon hd = new HoaDon(maHD);
         hd.setNgayLap(ngayLap);
-        hd.setTrangThaiThanhToan(trangThai); // Cần set trạng thái vào Entity
+        hd.setTrangThaiThanhToan(trangThai);
 
-        hd.setTheThanhVien(maThe != null ? new TheThanhVien(maThe) : null);
+        // ============= SỬA CHỖ #1: Load đầy đủ Thẻ thành viên =============
+        if (maThe != null) {
+            TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
+            hd.setTheThanhVien(ttvDAO.layTheTheoMaThe(maThe));
+        } else {
+            hd.setTheThanhVien(null);
+        }
+
         hd.setNhanVien(new NhanVien(maNV));
         hd.setBan(new Ban(maBan));
         hd.setBanDat(maDatBan != null ? new BanDat(maDatBan) : null);
@@ -51,32 +58,43 @@ public class HoaDon_DAO {
     }
 
     // =========================================================
-    // THÊM HÓA ĐƠN (Gồm cả Transaction thêm CT_HoaDon)
+    // THÊM HÓA ĐƠN + CHI TIẾT
     // =========================================================
-    
     public boolean themHoaDon(HoaDon hd) {
         Connection con = null;
         boolean success = false;
 
-        // SỬA LỖI: Format lại câu query cho dễ nhìn và chuẩn xác
         String sqlHD = "INSERT INTO HOADON (maHD, maThe, maNV, maBan, maDatBan, maKM, ngayLap, tongTien, trangThaiThanhToan) "
-                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try {
             con = ConnectDB.getConnection();
-            con.setAutoCommit(false); // Bắt đầu Transaction
+            con.setAutoCommit(false);
+
+            double tongSauGiam = 0;
+            double tongGoc = 0;
+            double tongGiam = 0;
 
             try (PreparedStatement psHD = con.prepareStatement(sqlHD)) {
+
+                // ========== GHI THÔNG TIN CƠ BẢN ==========
                 psHD.setString(1, hd.getMaHoaDon());
-                // Kiểm tra null an toàn hơn
-                psHD.setString(2, (hd.getTheThanhVien() != null) ? hd.getTheThanhVien().getMaThe() : null);
+                psHD.setString(2, hd.getTheThanhVien() != null ? hd.getTheThanhVien().getMaThe() : null);
                 psHD.setString(3, hd.getNhanVien().getMaNV());
                 psHD.setString(4, hd.getBan().getMaBan());
-                psHD.setString(5, (hd.getBanDat() != null) ? hd.getBanDat().getMaDatBan() : null);
-                psHD.setString(6, (hd.getKhuyenMai() != null) ? hd.getKhuyenMai().getMaKM() : null);
+                psHD.setString(5, hd.getBanDat() != null ? hd.getBanDat().getMaDatBan() : null);
+                psHD.setString(6, hd.getKhuyenMai() != null ? hd.getKhuyenMai().getMaKM() : null);
                 psHD.setTimestamp(7, Timestamp.valueOf(hd.getNgayLap()));
-                psHD.setDouble(8, hd.tinhTongTien());
-                psHD.setString(9, "Chờ thanh toán"); // Hardcode trạng thái ban đầu
+
+                // ========== TÍNH TIỀN ==========
+                tongGoc = hd.tinhTongTien();       
+                tongGiam = hd.tinhTongGiamGia();   
+
+                tongSauGiam = tongGoc - tongGiam;
+                if (tongSauGiam < 0) tongSauGiam = 0;
+
+                psHD.setDouble(8, tongSauGiam);
+                psHD.setString(9, "Chờ thanh toán");
 
                 if (psHD.executeUpdate() <= 0) {
                     con.rollback();
@@ -84,11 +102,9 @@ public class HoaDon_DAO {
                 }
             }
 
-            // THÊM CT HOÁ ĐƠN
-            if (hd.getDanhSachChiTietHoaDon() != null && !hd.getDanhSachChiTietHoaDon().isEmpty()) {
+            // ========== THÊM CHI TIẾT HÓA ĐƠN ==========
+            if (hd.getDanhSachChiTietHoaDon() != null) {
                 for (CT_HoaDon ct : hd.getDanhSachChiTietHoaDon()) {
-                    // LƯU Ý QUAN TRỌNG: Hàm themCTHoaDon phải nhận tham số Connection
-                    // và KHÔNG ĐƯỢC close connection đó.
                     if (!ctHoaDonDAO.themCTHoaDon(ct, con)) {
                         con.rollback();
                         return false;
@@ -96,36 +112,39 @@ public class HoaDon_DAO {
                 }
             }
 
-            con.commit(); // Xác nhận Transaction thành công
+            // ========== CỘNG ĐIỂM TÍCH LŨY ==========
+            if (hd.getTheThanhVien() != null) {
+                TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
+                TheThanhVien the = ttvDAO.layTheTheoMaThe(hd.getTheThanhVien().getMaThe());
+
+                if (the != null) {
+                    int diemCong = (int) (tongSauGiam / 100000);
+                    if (diemCong > 0) {
+                        ttvDAO.congDiem(the.getMaThe(), diemCong);
+                        ttvDAO.capNhatLoaiHangTheoDiem(the.getMaThe());
+                    }
+                }
+            }
+
+            con.commit();
             success = true;
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-            try {
-                if (con != null) con.rollback(); // Rollback nếu có lỗi SQL
-            } catch (SQLException ex) {
-                ex.printStackTrace();
-            }
         } catch (Exception e) {
             e.printStackTrace();
+            if (con != null) try { con.rollback(); } catch (SQLException ignored) {}
         } finally {
-            // Chỉ đóng kết nối ở đây
-            try {
-                if (con != null) con.close();
-            } catch (SQLException ex) {
-                ex.printStackTrace();
-            }
+            if (con != null) try { con.close(); } catch (SQLException ignored) {}
         }
+
         return success;
     }
 
     // =========================================================
-    // LẤY HOÁ ĐƠN CHƯA THANH TOÁN THEO BÀN (Đã sửa logic)
+    // LẤY HÓA ĐƠN CHƯA THANH TOÁN THEO BÀN
     // =========================================================
-    public HoaDon layHoaDonChuaThanhToanTheoBan(String maBan) { // Bỏ tham số maNV vì không dùng
+    public HoaDon layHoaDonChuaThanhToanTheoBan(String maBan) {
         HoaDon hd = null;
 
-        // SỬA LỖI: Thêm điều kiện trangThaiThanhToan để tránh lấy nhầm hóa đơn cũ
         String sql = "SELECT TOP 1 * FROM HOADON WHERE maBan = ? AND trangThaiThanhToan = N'Chờ thanh toán' ORDER BY ngayLap DESC";
 
         try (Connection con = ConnectDB.getConnection();
@@ -136,23 +155,23 @@ public class HoaDon_DAO {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     hd = createHoaDonFromResultSet(rs);
-                    // Load chi tiết hóa đơn đi kèm
+
                     ArrayList<CT_HoaDon> dsCT = ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon());
                     hd.setDanhSachChiTietHoaDon(dsCT);
                 }
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return hd;
     }
 
     // =========================================================
-    // LẤY MÃ HOÁ ĐƠN TIẾP THEO
+    // LẤY MÃ HÓA ĐƠN TIẾP THEO
     // =========================================================
     public String layMaHDTiepTheo() {
-        // Query này hoạt động tốt với format HD001, HD002...
-        // Tuy nhiên cần đảm bảo trong DB không có rác (ví dụ HDABC) nếu không sẽ lỗi cast int
         String sql = "SELECT MAX(CAST(SUBSTRING(maHD, 3, LEN(maHD)) AS INT)) AS MaxNum FROM HOADON";
 
         try (Connection con = ConnectDB.getConnection();
@@ -160,16 +179,15 @@ public class HoaDon_DAO {
              ResultSet rs = ps.executeQuery()) {
 
             if (rs.next()) {
-                // Nếu DB chưa có dữ liệu, rs.getInt trả về 0, maxNum + 1 = 1 -> HD001 (Đúng)
-                int maxNum = rs.getInt("MaxNum");
-                return String.format("HD%03d", maxNum + 1);
+                int max = rs.getInt("MaxNum");
+                return String.format("HD%03d", max + 1);
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return "HD001"; // Fallback nếu lỗi
+        return "HD001";
     }
 
     // =========================================================
@@ -185,42 +203,48 @@ public class HoaDon_DAO {
 
             while (rs.next()) {
                 HoaDon hd = createHoaDonFromResultSet(rs);
-                // Có thể cân nhắc KHÔNG load chi tiết ở đây nếu danh sách quá dài (Lazy loading)
-                // để tăng tốc độ hiển thị danh sách ban đầu.
-                // hd.setDanhSachChiTietHoaDon(ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon()));
                 ds.add(hd);
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return ds;
     }
- // =========================================================
- // LẤY TỔNG TIỀN THEO MÃ HÓA ĐƠN
- // =========================================================
- /**
-  * Lấy tổng tiền (đã giảm giá) của một hóa đơn cụ thể từ cơ sở dữ liệu.
-  * @param maHD Mã hóa đơn cần truy vấn.
-  * @return Tổng tiền (double) nếu tìm thấy, -1.0 nếu không tìm thấy hoặc có lỗi.
-  */
- public double layTongTienTheoMaHD(String maHD) {
-     double tongTien = -1.0;
-     String sql = "SELECT tongTien FROM HOADON WHERE maHD = ?";
 
-     try (Connection con = ConnectDB.getConnection();
-          PreparedStatement ps = con.prepareStatement(sql)) {
+    // =========================================================
+    // LẤY TỔNG TIỀN THEO MÃ HÓA ĐƠN
+    // =========================================================
+    public double layTongTienTheoMaHD(String maHD) {
+        double tongTien = -1.0;
+        String sql = "SELECT tongTien FROM HOADON WHERE maHD = ?";
 
-         ps.setString(1, maHD);
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-         try (ResultSet rs = ps.executeQuery()) {
-             if (rs.next()) {
-                 // Lấy tổng tiền trực tiếp từ cột tongTien
-                 tongTien = rs.getDouble("tongTien"); 
-             }
-         }
-     } catch (SQLException e) {
-         e.printStackTrace();
-     }
-     return tongTien;
- }
+            ps.setString(1, maHD);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    tongTien = rs.getDouble("tongTien");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return tongTien;
+    }
+
+    // =========================================================
+    // HÀM TÍNH GIẢM GIÁ THEO LOẠI THẺ
+    // =========================================================
+    private double tinhGiamGiaTheoLoaiHang(String loaiHang) {
+        if (loaiHang == null) return 0.10;
+        if (loaiHang.equals("Kim cương")) return 0.15;
+        if (loaiHang.equals("Vàng")) return 0.12;
+        return 0.10;
+    }
 }
