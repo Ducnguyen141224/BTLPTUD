@@ -16,15 +16,19 @@ import java.util.stream.Collectors;
 // Import các lớp cần thiết để làm việc với CSDL
 import connectDB.ConnectDB;
 import dao.MonAn_DAO;
+import dao.TheThanhVien_DAO;
 import dao.BanDat_DAO;
 import dao.Ban_DAO;
 import dao.CT_BanDat_DAO;
+import dao.KhachHang_DAO;
 import entity.MonAn;
 import entity.CTBanDat;
+import entity.KhachHang;
 import entity.Ban;
 import entity.BanDat;
- import entity.NhanVien; 
- import gui.ThanhToan_Gui; 
+ import entity.NhanVien;
+import entity.TheThanhVien;
+import gui.ThanhToan_Gui; 
  import gui.DangNhap_GUI; 
 
 
@@ -55,6 +59,7 @@ public class GoiMon_GUI extends JPanel {
     private List<MonAn> danhSachMonAnHienThi;
     private String maBanHienTai;
     private LocalTime gioVao;
+    private TheThanhVien theThanhVienDangChon = null;
     private BanDat_DAO banDatDAO = new BanDat_DAO();
     private static final String[] COT_DANG_GOI = {"STT", "Tên món", "SL", "Giá", "Thao tác"};
     private static final String[] COT_DA_GOI = {"STT", "Tên món", "SL", "Giá"};
@@ -348,6 +353,104 @@ public class GoiMon_GUI extends JPanel {
             JOptionPane.showMessageDialog(this, "Không tìm thấy cửa sổ cha.", "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
             return;
         }
+     // ============================
+     // LẤY KHÁCH HÀNG + THẺ TV
+     // ============================
+     KhachHang kh = null;
+     this.theThanhVienDangChon = null;
+
+     KhachHang_DAO khDAO = new KhachHang_DAO();
+     TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
+
+     BanDat bd = banDatDAO.getBanDatDangSuDung(maBanHienTai);
+
+     try {
+
+         boolean laKhachTrucTiep =
+                 (bd == null) ||
+                 "Khách vào trực tiếp".equalsIgnoreCase(bd.getGhiChu());
+
+         // -------------------------------------
+         // A. KHÁCH ĐẶT BÀN TRƯỚC
+         // -------------------------------------
+         if (!laKhachTrucTiep && bd.getKhachHang() != null) {
+
+             kh = bd.getKhachHang();
+             this.theThanhVienDangChon = ttvDAO.layTheTheoMaKH(kh.getMaKH());
+
+             if (this.theThanhVienDangChon == null) {
+                 String maTheMoi = ttvDAO.phatSinhMaThe();
+                 ttvDAO.themTheThanhVien(
+                     new TheThanhVien(maTheMoi, new KhachHang(kh.getMaKH()), 0, "Bạc")
+                 );
+                 this.theThanhVienDangChon = ttvDAO.layTheTheoMaThe(maTheMoi);
+             }
+         }
+
+         // -------------------------------------
+         // B. KHÁCH VÃNG LAI
+         // -------------------------------------
+         else {
+
+             String sdt = JOptionPane.showInputDialog(this,
+                     "Nhập SĐT để tích điểm (bỏ trống nếu bỏ qua):",
+                     "Xác thực tích điểm", JOptionPane.QUESTION_MESSAGE);
+
+             if (sdt != null && !sdt.trim().isEmpty()) {
+
+                 sdt = sdt.trim();
+                 kh = khDAO.timKhachHangTheoSDT(sdt);
+
+                 // --- KHÁCH MỚI ---
+                 if (kh == null) {
+
+                     String ten = JOptionPane.showInputDialog(this,
+                             "Nhập tên khách hàng:", "Khách mới",
+                             JOptionPane.QUESTION_MESSAGE);
+
+                     if (ten == null || ten.trim().isEmpty())
+                         ten = "Khách mới";
+
+                     KhachHang khMoi = new KhachHang(null, ten, sdt, "", false);
+                     khMoi = khDAO.themHoacLayKhachHang(khMoi);
+
+                     // Tạo thẻ TV
+                     String maTheMoi = ttvDAO.phatSinhMaThe();
+                     ttvDAO.themTheThanhVien(
+                             new TheThanhVien(maTheMoi, new KhachHang(khMoi.getMaKH()), 0, "Bạc")
+                     );
+
+                     this.theThanhVienDangChon = ttvDAO.layTheTheoMaThe(maTheMoi);
+                     kh = khMoi;
+                 }
+
+                 // --- KHÁCH CŨ ---
+                 else {
+
+                     this.theThanhVienDangChon = ttvDAO.layTheTheoMaKH(kh.getMaKH());
+
+                     if (this.theThanhVienDangChon == null) {
+                         String maTheMoi = ttvDAO.phatSinhMaThe();
+                         ttvDAO.themTheThanhVien(
+                             new TheThanhVien(maTheMoi, new KhachHang(kh.getMaKH()), 0, "Bạc")
+                         );
+
+                         this.theThanhVienDangChon = ttvDAO.layTheTheoMaThe(maTheMoi);
+                     }
+                 }
+             }
+         }
+
+     } catch (Exception ex) {
+         ex.printStackTrace();
+         JOptionPane.showMessageDialog(this,
+                 "Lỗi xử lý khách hàng/thẻ TV:\n" + ex.getMessage(),
+                 "Lỗi", JOptionPane.ERROR_MESSAGE);
+         return;
+     }
+
+
+
 
         parentFrame.setVisible(false);
         GoiMon_GUI currentGui = this; 
@@ -373,16 +476,16 @@ public class GoiMon_GUI extends JPanel {
                 currentGui.lamMoiSauThanhToan(); 
             }
         });
-
         try {
              ThanhToan_Gui thanhToanPanel = new ThanhToan_Gui(
                  gioHangXacNhan, 
                  bangGia, 
-                 tongTienHoaDon,
+                 tinhTongTienGioHang(),
                  tienCoc,
                  maBanHienTai,
                  DangNhap_GUI.taiKhoanDangNhap.getNhanVien(), 
-                 this.gioVao
+                 this.gioVao,
+                 this.theThanhVienDangChon
              );
              thanhToanFrame.setContentPane(thanhToanPanel);
 
@@ -750,6 +853,17 @@ public class GoiMon_GUI extends JPanel {
 
         return panel;
     }
+    private double tinhTongTienGioHang() {
+        double tong = 0;
+        for (Map.Entry<String, Integer> entry : gioHangXacNhan.entrySet()) {
+            String ten = entry.getKey();
+            int sl = entry.getValue();
+            int gia = bangGia.getOrDefault(ten, 0);
+            tong += gia * sl;
+        }
+        return tong;
+    }
+
     // END: Sửa phần giỏ hàng
     
 

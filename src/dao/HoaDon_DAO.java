@@ -95,7 +95,8 @@ public class HoaDon_DAO {
 
                 psHD.setDouble(8, tongSauGiam);
                 psHD.setString(9, "Chờ thanh toán");
-
+                System.out.println(">>> maThe ghi vào hóa đơn = " + 
+                	    (hd.getTheThanhVien() == null ? "NULL" : hd.getTheThanhVien().getMaThe()));
                 if (psHD.executeUpdate() <= 0) {
                     con.rollback();
                     return false;
@@ -118,7 +119,7 @@ public class HoaDon_DAO {
                 TheThanhVien the = ttvDAO.layTheTheoMaThe(hd.getTheThanhVien().getMaThe());
 
                 if (the != null) {
-                    int diemCong = (int) (tongSauGiam / 100000);
+                    int diemCong = (int) (tongGoc/ 100000);
                     if (diemCong > 0) {
                         ttvDAO.congDiem(the.getMaThe(), diemCong);
                         ttvDAO.capNhatLoaiHangTheoDiem(the.getMaThe());

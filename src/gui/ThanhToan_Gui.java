@@ -76,10 +76,12 @@ public class ThanhToan_Gui extends JPanel {
     private double soTienKhachDua = 0;
     private String hinhThucThanhToan = "Tiền mặt"; 
     private JButton btnTienMat, btnBank, btnMoMo; 
-    
-    private double giamGia = 0; 
+
     private double tienCoc = 0; 
     private double tongTienSauGiamGia = 0; 
+    private double giamGiaTV = 0;
+    private double giamGiaKM = 0; 
+    private double giamGiaCK = 0;
     private boolean daThanhToanXong = false;
     private String maBan;
     private NhanVien nhanVienHienTai;
@@ -88,7 +90,7 @@ public class ThanhToan_Gui extends JPanel {
     private LocalTime gioRa;
     private TheThanhVien theThanhVienDangChon = null;
     
-    public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2, String maBan, NhanVien nhanVien, LocalTime gioVao) {
+    public ThanhToan_Gui(Map<String, Integer> gioHangXacNhan, Map<String, Integer> bangGia, double tongTienHoaDon, double tienCoc2, String maBan, NhanVien nhanVien, LocalTime gioVao, TheThanhVien theTV) {
     	this.maHoaDon = new HoaDon_DAO().layMaHDTiepTheo();
     	this.gioHangXacNhan = new LinkedHashMap<>(gioHangXacNhan);
     	this.bangGia = new LinkedHashMap<>(bangGia);
@@ -98,7 +100,10 @@ public class ThanhToan_Gui extends JPanel {
         this.maBan = maBan;
         this.nhanVienHienTai = nhanVien;
         this.gioVao = gioVao;             
-        this.gioRa = LocalTime.now();     
+        this.gioRa = LocalTime.now();
+        System.out.println(">>> [Constructor] Nhận theTV = " +
+        	    (this.theThanhVienDangChon == null ? "NULL" : this.theThanhVienDangChon.getMaThe()));
+        this.theThanhVienDangChon = theTV;
         dinhDangTien = NumberFormat.getInstance(new Locale("vi", "VN"));
 
         setLayout(new BorderLayout());
@@ -145,23 +150,28 @@ public class ThanhToan_Gui extends JPanel {
         capNhatTrangThaiNutThanhToan(); 
         taoVaHienThiQRCode(); 
         try {
-            BanDat_DAO bdDAO = new BanDat_DAO();
-            BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
+        	// Nếu chưa có thẻ thành viên (tức là không phải khách nhập SĐT từ GoiMon_GUI)
+            // thì mới thử tìm trong BanDat (trường hợp khách đặt bàn trước)
+            if (this.theThanhVienDangChon == null) { 
+                BanDat_DAO bdDAO = new BanDat_DAO();
+                BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
 
-            if (bd != null && bd.getKhachHang() != null) {
-                String maKH = bd.getKhachHang().getMaKH();
-                TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
-                theThanhVienDangChon = ttvDAO.layTheTheoMaKH(maKH);
-
-                if (theThanhVienDangChon != null) {
-                    double pt = 0;
-                    switch (theThanhVienDangChon.getLoaiHang()) {
-                        case "Kim cương": pt = 0.15; break;
-                        case "Vàng": pt = 0.12; break;
-                        default: pt = 0.10; break; // Bạc
-                    }
-                    giamGia = tongTienHoaDonBanDau * pt;
+                if (bd != null && bd.getKhachHang() != null) {
+                    String maKH = bd.getKhachHang().getMaKH();
+                    TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
+                    this.theThanhVienDangChon = ttvDAO.layTheTheoMaKH(maKH);
                 }
+            }
+
+            // Tính toán giảm giá chung cho cả 2 trường hợp (có thẻ từ SĐT hoặc từ BanDat)
+            if (this.theThanhVienDangChon != null) {
+                double pt = 0;
+                switch (this.theThanhVienDangChon.getLoaiHang()) {
+                    case "Kim cương": pt = 0.15; break;
+                    case "Vàng": pt = 0.12; break;
+                    default: pt = 0.10; break; // Bạc
+                }
+                giamGiaTV = tongTienHoaDonBanDau * pt;
             }
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -173,26 +183,26 @@ public class ThanhToan_Gui extends JPanel {
     // ----------------------------------------------------------------------
     
     private void capNhatTongTien() {
-    	// Áp dụng giảm giá thẻ thành viên (nếu có)
-    	if (theThanhVienDangChon != null) {
-    	    double pt = 0;
-    	    switch (theThanhVienDangChon.getLoaiHang()) {
-    	        case "Kim cương": pt = 0.15; break;
-    	        case "Vàng": pt = 0.12; break;
-    	        default: pt = 0.10; break;
-    	    }
-    	    giamGia = tongTienHoaDonBanDau * pt;
-    	}
-        this.tongTienSauGiamGia = this.tongTienHoaDonBanDau - this.giamGia - this.tienCoc;
-        
-        if (this.tongTienSauGiamGia < 0) {
-            this.tongTienSauGiamGia = 0; 
+        if (theThanhVienDangChon != null) {
+            double pt = switch (theThanhVienDangChon.getLoaiHang()) {
+                case "Kim cương" -> 0.15;
+                case "Vàng"      -> 0.12;
+                default          -> 0.10;
+            };
+            giamGiaTV = tongTienHoaDonBanDau * pt;
         }
-        
+
+        // TỔNG GIẢM GIÁ
+        double tongGiam = giamGiaTV + giamGiaKM + giamGiaCK;
+
+        // TÍNH TIỀN PHẢI THU
+        tongTienSauGiamGia = tongTienHoaDonBanDau - tongGiam - tienCoc;
+        if (tongTienSauGiamGia < 0) tongTienSauGiamGia = 0;
+
         capNhatTongKet();
         capNhatTienThua();
-        taoVaHienThiQRCode(); 
-        
+        taoVaHienThiQRCode();
+
         if (pnlGoiYContainer != null) {
             pnlGoiYContainer.removeAll();
             pnlGoiYContainer.add(capNhatKhuVucGoiY(), BorderLayout.CENTER);
@@ -477,7 +487,7 @@ public class ThanhToan_Gui extends JPanel {
                     "Khách đưa: %s VND\n" +
                     "Tiền thừa: %s VND\n",
                     dinhDangTien.format(tongTienHoaDonBanDau),
-                    dinhDangTien.format(giamGia),
+                    dinhDangTien.format(giamGiaTV + giamGiaKM + giamGiaCK),
                     dinhDangTien.format(tongTienSauGiamGia),
                     hinhThucThanhToan,
                     dinhDangTien.format(soTienKhachDua),
@@ -534,7 +544,10 @@ public class ThanhToan_Gui extends JPanel {
         
         // Dòng 2: Giảm giá (Giá trị đã giảm)
         panel.add(new JLabel("Giảm giá:", SwingConstants.LEFT));
-        lblGiamGiaHienTai = new JLabel(dinhDangTien.format(giamGia) + " VND", SwingConstants.RIGHT); 
+        lblGiamGiaHienTai = new JLabel(
+                dinhDangTien.format(giamGiaTV + giamGiaKM + giamGiaCK) + " VND",
+                SwingConstants.RIGHT
+        );
         lblGiamGiaHienTai.setForeground(new Color(220, 53, 69)); 
         panel.add(lblGiamGiaHienTai);
         
@@ -575,9 +588,7 @@ public class ThanhToan_Gui extends JPanel {
             "Nhập giá trị giảm giá (VND hoặc %):\nVí dụ: 50000 hoặc 10%", 
             "Chiết khấu trực tiếp", JOptionPane.QUESTION_MESSAGE);
 
-        if (input == null || input.trim().isEmpty()) {
-            return; 
-        }
+        if (input == null || input.trim().isEmpty()) return;
 
         input = input.trim().toUpperCase().replace(",", ".");
         double giaTriNhap;
@@ -586,37 +597,36 @@ public class ThanhToan_Gui extends JPanel {
             if (input.endsWith("%")) {
                 String phanTramStr = input.substring(0, input.length() - 1);
                 giaTriNhap = Double.parseDouble(phanTramStr);
-                
-                if (giaTriNhap < 0 || giaTriNhap > 100) {
+
+                if (giaTriNhap < 0 || giaTriNhap > 100)
                     throw new IllegalArgumentException("Phần trăm phải từ 0 đến 100.");
-                }
-                
-                this.giamGia = tongTienHoaDonBanDau * (giaTriNhap / 100.0);
-                
+
+                giamGiaCK = tongTienHoaDonBanDau * (giaTriNhap / 100.0);
+
             } else {
                 giaTriNhap = Double.parseDouble(input);
-                
-                if (giaTriNhap < 0 || giaTriNhap > tongTienHoaDonBanDau) {
+
+                if (giaTriNhap < 0 || giaTriNhap > tongTienHoaDonBanDau)
                     throw new IllegalArgumentException("Giảm giá không hợp lệ.");
-                }
-                
-                this.giamGia = giaTriNhap;
+
+                giamGiaCK = giaTriNhap;
             }
-            
+
             capNhatTongTien();
-            
-            // Nếu không phải Tiền mặt, tự động cập nhật số tiền khách đưa
+
             if (!hinhThucThanhToan.equals("Tiền mặt")) {
                 soTienKhachDua = tongTienSauGiamGia;
                 txtKhachDua.setText(dinhDangTien.format(soTienKhachDua));
             }
-            
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Giá trị nhập không hợp lệ.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
-        } catch (IllegalArgumentException e) {
-             JOptionPane.showMessageDialog(this, e.getMessage(), "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "Giá trị nhập không hợp lệ!", 
+                "Lỗi nhập liệu",
+                JOptionPane.ERROR_MESSAGE);
         }
     }
+
     
     // OVERLOAD 1: Dùng cho các nút Tiền mặt/Bank/MoMo (Sẽ reset tiền mặt về 0)
     private void chonHinhThucThanhToan(String hinhThucMoi) {
@@ -705,217 +715,64 @@ public class ThanhToan_Gui extends JPanel {
     
  // Trong ThanhToan_Gui.java
     private boolean inHoaDon() {
-
-        // 1. Kiểm tra tiền khách đưa (chỉ áp dụng với Tiền mặt)
+    	System.out.println(">>> inHoaDon dùng theTV = " +
+    		    (this.theThanhVienDangChon == null ? "NULL" : this.theThanhVienDangChon.getMaThe()));
         if (hinhThucThanhToan.equals("Tiền mặt") && soTienKhachDua < tongTienSauGiamGia) {
-            JOptionPane.showMessageDialog(this,
-                    "Số tiền khách đưa không đủ!",
-                    "Lỗi Thanh Toán",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, 
+                "Số tiền khách đưa không đủ!", 
+                "Lỗi Thanh Toán", 
+                JOptionPane.ERROR_MESSAGE);
             return false;
         }
 
-        KhachHang_DAO khDAO = new KhachHang_DAO();
-        TheThanhVien_DAO ttvDAO = new TheThanhVien_DAO();
-        BanDat_DAO bdDAO = new BanDat_DAO();
-        TheThanhVien theTV = null;
-
-        // ⭐ LẤY ĐẶT BÀN
-        BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
-
-        // ⭐ TRƯỜNG HỢP 1: KHÁCH ĐẶT BÀN TRƯỚC (KHÔNG PHẢI KHÁCH VÀO TRỰC TIẾP)
-        if (bd != null 
-                && bd.getKhachHang() != null
-                && (bd.getGhiChu() == null 
-                    || !bd.getGhiChu().equalsIgnoreCase("Khách vào trực tiếp"))) {
-
-            KhachHang kh = bd.getKhachHang();
-
-            try {
-                theTV = ttvDAO.layTheTheoMaKH(kh.getMaKH());
-
-                if (theTV == null) {
-                    theTV = new TheThanhVien(ttvDAO.phatSinhMaThe(), kh, 0, "Bạc");
-                    ttvDAO.themTheThanhVien(theTV);
-                }
-
-            } catch (SQLException ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(this,
-                        "Lỗi lấy thẻ thành viên!\n" + ex.getMessage(),
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        }
-
-        // ⭐ TRƯỜNG HỢP 2: KHÁCH VÀO TRỰC TIẾP → HỎI SĐT (CÓ THỂ BỎ TRỐNG)
-        else {
-
-            String sdt = JOptionPane.showInputDialog(this,
-                    "Nhập SĐT để tích điểm (bỏ trống để bỏ qua):",
-                    "Tích điểm thẻ thành viên",
-                    JOptionPane.QUESTION_MESSAGE);
-
-            if (sdt != null && !sdt.trim().isEmpty()) {
-
-                sdt = sdt.trim();
-
-                try {
-                    KhachHang kh = khDAO.timKhachHangTheoSDT(sdt);
-
-                    if (kh == null) {
-                        String tenTam = JOptionPane.showInputDialog(this,
-                                "Nhập tên khách hàng:",
-                                "Khách mới",
-                                JOptionPane.QUESTION_MESSAGE);
-
-                        if (tenTam == null || tenTam.trim().isEmpty())
-                            tenTam = "Khách mới";
-
-                        KhachHang khMoi = new KhachHang(null, tenTam, sdt, "", false);
-                        khMoi = khDAO.themHoacLayKhachHang(khMoi);
-
-                        theTV = new TheThanhVien(ttvDAO.phatSinhMaThe(), khMoi, 0, "Bạc");
-                        ttvDAO.themTheThanhVien(theTV);
-
-                    } else {
-
-                        theTV = ttvDAO.layTheTheoMaKH(kh.getMaKH());
-
-                        if (theTV == null) {
-                            theTV = new TheThanhVien(ttvDAO.phatSinhMaThe(), kh, 0, "Bạc");
-                            ttvDAO.themTheThanhVien(theTV);
-                        }
-                    }
-
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(this,
-                            "Lỗi xử lý thẻ thành viên!\n" + ex.getMessage(),
-                            "Lỗi",
-                            JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        }
-
-        // ✔ Lưu vào biến GUI
-        theThanhVienDangChon = theTV;
-        double giamGiaThanhVien = 0;
-        double giamGiaKhuyenMai = 0;
-
-        // Giảm giá theo thẻ thành viên
-        if (theThanhVienDangChon != null) {
-            switch (theThanhVienDangChon.getLoaiHang()) {
-                case "Kim cương": giamGiaThanhVien = tongTienHoaDonBanDau * 0.15; break;
-                case "Vàng": giamGiaThanhVien = tongTienHoaDonBanDau * 0.12; break;
-                default: giamGiaThanhVien = tongTienHoaDonBanDau * 0.10; break;
-            }
-        }
-
-        // Giảm giá theo khuyến mãi
-        if (khuyenMaiDaChon != null) {
-            giamGiaKhuyenMai = tongTienHoaDonBanDau * khuyenMaiDaChon.getPhanTramGiam();
-        }
-
-        // Tổng giảm giá
-        double tongGiamGia = giamGiaThanhVien + giamGiaKhuyenMai;
-
-        // Tổng tiền cần thanh toán
+        // TÍNH TỔNG GIẢM GIÁ ĐÃ CÓ
+        double tongGiamGia = giamGiaTV + giamGiaKM + giamGiaCK;
         tongTienSauGiamGia = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
         if (tongTienSauGiamGia < 0) tongTienSauGiamGia = 0;
 
-        // Cập nhật lại biến giao diện
-        this.giamGia = tongGiamGia;
-
-
-        // =========================================================
-        // ⭐ 2. LƯU HÓA ĐƠN XUỐNG DATABASE
-        // =========================================================
         try {
             HoaDon_DAO hdDAO = new HoaDon_DAO();
             MonAn_DAO monDAO = new MonAn_DAO();
+            BanDat_DAO bdDAO = new BanDat_DAO();
 
             String maHD = hdDAO.layMaHDTiepTheo();
             this.maHoaDon = maHD;
 
             HoaDon hd = new HoaDon(maHD);
-
-            // Nếu có đặt bàn → gán vào hóa đơn
-            BanDat bdDangSuDung = bdDAO.getBanDatDangSuDung(maBan);
-            hd.setBanDat(bdDangSuDung);
-
             hd.setNgayLap(LocalDateTime.now());
             hd.setNhanVien(nhanVienHienTai);
             hd.setBan(new Ban(maBan));
-            hd.setKhuyenMai(this.khuyenMaiDaChon);
-            hd.setTheThanhVien(theThanhVienDangChon);
+            hd.setKhuyenMai(khuyenMaiDaChon);
+            hd.setTheThanhVien(this.theThanhVienDangChon);
 
-            // === KHÔNG gọi tính giảm giá ở đây (DAO sẽ xử lý) ===
+            BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
+            hd.setBanDat(bd);
 
             ArrayList<CT_HoaDon> dsCT = new ArrayList<>();
-
             for (Map.Entry<String, Integer> item : gioHangXacNhan.entrySet()) {
                 MonAn mon = monDAO.getMonAnTheoTen(item.getKey());
-                if (mon == null) {
-                    JOptionPane.showMessageDialog(this,
-                        "Không tìm thấy món ăn: " + item.getKey(),
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
-                    return false;
-                }
                 dsCT.add(new CT_HoaDon(hd, mon, item.getValue()));
             }
-
             hd.setDanhSachChiTietHoaDon(dsCT);
 
             if (!hdDAO.themHoaDon(hd)) {
-                JOptionPane.showMessageDialog(this,
-                    "❌ Lưu hóa đơn thất bại!",
-                    "Lỗi database",
-                    JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "❌ Lưu hóa đơn thất bại!");
                 return false;
             }
+            // Cập nhật trạng thái bàn
+            new Ban_DAO().capNhatTrangThaiBan(maBan, "Trống");
 
         } catch (Exception ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "Lỗi khi lưu hóa đơn: " + ex.getMessage(),
-                "Lỗi",
-                JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Lỗi khi lưu hóa đơn: " + ex.getMessage());
             return false;
-        }
-
-        // =========================================================
-        // ⭐ 3. CẬP NHẬT TRẠNG THÁI BÀN + ĐẶT BÀN
-        // =========================================================
-        try {
-            Ban_DAO banDAO = new Ban_DAO();
-            banDAO.capNhatTrangThaiBan(maBan, "Trống");
-
-            BanDat bdUpdate = bdDAO.getBanDatDangSuDung(maBan);
-
-            if (bdUpdate != null) {
-                bdDAO.updateGioCheckIn(bdUpdate.getMaDatBan(), null);
-                bdUpdate.setTrangThai("Hoàn thành");
-                bdUpdate.setGioCheckIn(null);
-                bdDAO.updateBanDat(bdUpdate);
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         daThanhToanXong = true;
         return true;
     }
 
-
-
-
-    
-
     // cập nhật giao  diện
-  
     private void hienThiHoaDon() {
         modelHoaDon.setRowCount(0);
         int stt = 1;
@@ -932,13 +789,15 @@ public class ThanhToan_Gui extends JPanel {
     
     private void capNhatTongKet() {
         lblTongTienHoaDon.setText(dinhDangTien.format(tongTienSauGiamGia) + " VND");
-        lblGiamGiaHienTai.setText(dinhDangTien.format(giamGia) + " VND");
-        if (khuyenMaiDaChon != null) {
-            // Nếu có khuyến mãi, hiển thị kèm %
-            lblGiamGiaHienTai.setText(dinhDangTien.format(giamGia) + " VND (" + khuyenMaiDaChon.getPhanTramGiam() * 100 + "%)");
-        } else {
-            lblGiamGiaHienTai.setText(dinhDangTien.format(giamGia) + " VND");
-        }
+        double tongGiam = giamGiaTV + giamGiaKM + giamGiaCK;
+        lblGiamGiaHienTai.setText(
+            String.format("%s VND (TV: %s | KM: %s | CK: %s)",
+                dinhDangTien.format(tongGiam),
+                dinhDangTien.format(giamGiaTV),
+                dinhDangTien.format(giamGiaKM),
+                dinhDangTien.format(giamGiaCK)
+            )
+        );
         lblGiamGiaHienTai.setForeground(new Color(220, 53, 69));
         capNhatTrangThaiNutThanhToan();
     }
@@ -1029,53 +888,33 @@ public class ThanhToan_Gui extends JPanel {
                 g2.drawString(dinhDangTien.format(tongTienHoaDonBanDau), 300, y);
                 y += 18;
 
-                // === TÍNH GIẢM GIÁ ===
-                double giamGiaThanhVien = 0;
-                double giamGiaKhuyenMai = 0;
-
-                // Giảm giá thẻ thành viên
-                if (theThanhVienDangChon != null) {
-                    switch (theThanhVienDangChon.getLoaiHang()) {
-                        case "Kim cương": giamGiaThanhVien = tongTienHoaDonBanDau * 0.15; break;
-                        case "Vàng": giamGiaThanhVien = tongTienHoaDonBanDau * 0.12; break;
-                        default: giamGiaThanhVien = tongTienHoaDonBanDau * 0.10; break;
-                    }
-                }
-
-                // Giảm giá khuyến mãi
-                if (khuyenMaiDaChon != null) {
-                    giamGiaKhuyenMai = tongTienHoaDonBanDau * khuyenMaiDaChon.getPhanTramGiam();
-                }
-
-                // Tổng giảm giá
-                double tongGiamGia = giamGiaThanhVien + giamGiaKhuyenMai;
-
-                // In giảm giá
+                // TỔNG GIẢM GIÁ (KHÔNG TÍNH LẠI)
+                double tongGiamGia = giamGiaTV + giamGiaKM + giamGiaCK;
                 g2.drawString("Giảm giá:", 10, y);
                 g2.drawString(dinhDangTien.format(tongGiamGia), 300, y);
                 y += 18;
 
-                // Trừ cọc
+                // TRỪ CỌC
                 g2.drawString("Trừ cọc:", 10, y);
                 g2.drawString(dinhDangTien.format(tienCoc), 300, y);
                 y += 18;
 
-                // Tổng tiền phải thu
-                double tongTienSauGiam = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
-                if (tongTienSauGiam < 0) tongTienSauGiam = 0;
+                // TỔNG TIỀN SAU GIẢM
+                double tongSauGiam = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
+                if (tongSauGiam < 0) tongSauGiam = 0;
 
                 g2.drawString("Tổng tiền:", 10, y);
-                g2.drawString(dinhDangTien.format(tongTienSauGiam), 300, y);
+                g2.drawString(dinhDangTien.format(tongSauGiam), 300, y);
                 y += 22;
 
-                // Khách đưa
+                // KHÁCH ĐƯA
                 g2.drawString("Khách đưa:", 10, y);
                 g2.drawString(dinhDangTien.format(soTienKhachDua), 300, y);
                 y += 18;
 
-                // Tiền thừa (dựa theo tổng tiền sau giảm)
+                // TIỀN THỪA
                 g2.drawString("Tiền thừa:", 10, y);
-                g2.drawString(dinhDangTien.format(soTienKhachDua - tongTienSauGiam), 300, y);
+                g2.drawString(dinhDangTien.format(soTienKhachDua - tongSauGiam), 300, y);
                 y += 25;
 
                 // ====== CHÂN BILL ======
@@ -1171,68 +1010,38 @@ public class ThanhToan_Gui extends JPanel {
     }
     private void xuLyChonKhuyenMai() {
         KhuyenMai_DAO kmDAO = new KhuyenMai_DAO();
-        
-        // 1. Gọi hàm lấy danh sách đang diễn ra từ DAO của bạn
-        ArrayList<KhuyenMai> dsKM = kmDAO.getKhuyenMaiDangDienRa(); 
+        ArrayList<KhuyenMai> ds = kmDAO.getKhuyenMaiDangDienRa();
 
-        // 2. Kiểm tra nếu không có khuyến mãi nào
-        if (dsKM == null || dsKM.isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "Hiện tại không có chương trình khuyến mãi nào đang diễn ra!", 
-                "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        if (ds == null || ds.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Không có khuyến mãi!");
             return;
         }
 
-        // 3. Tạo danh sách hiển thị cho Popup (ComboBox)
-        // Hiển thị dạng: "Mã - Tên (Giảm X%)"
-        String[] options = new String[dsKM.size()];
-        for (int i = 0; i < dsKM.size(); i++) {
-            KhuyenMai km = dsKM.get(i);
-            options[i] = String.format("%s - %s (Giảm %.0f%%)", 
-                                       km.getMaKM(), km.getTenKM(), km.getPhanTramGiam() * 100);
+        String[] options = new String[ds.size()];
+        for (int i = 0; i < ds.size(); i++) {
+            options[i] = ds.get(i).getMaKM() + " - " + ds.get(i).getTenKM() +
+                         " (" + (int)(ds.get(i).getPhanTramGiam() * 100) + "%)";
         }
 
-        // 4. Hiển thị Popup cho người dùng chọn
-        String luaChon = (String) JOptionPane.showInputDialog(
-                this,
-                "Chọn chương trình khuyến mãi áp dụng:",
-                "Danh sách khuyến mãi",
-                JOptionPane.QUESTION_MESSAGE,
-                null, // Icon mặc định
-                options,
-                options[0] // Chọn mặc định phần tử đầu
-        );
+        String selected = (String) JOptionPane.showInputDialog(
+                this, "Chọn khuyến mãi:", "KM",
+                JOptionPane.QUESTION_MESSAGE, null,
+                options, options[0]);
 
-        // 5. Xử lý sau khi chọn
-        if (luaChon != null) {
-            // Tìm lại đối tượng KhuyenMai dựa trên chuỗi đã chọn
-            for (int i = 0; i < options.length; i++) {
-                if (options[i].equals(luaChon)) {
-                    this.khuyenMaiDaChon = dsKM.get(i); // Lưu đối tượng KM
-                    break;
-                }
-            }
+        if (selected == null) return;
 
-            // Tính toán số tiền giảm
-            if (this.khuyenMaiDaChon != null) {
-                double phanTram = this.khuyenMaiDaChon.getPhanTramGiam();
-                
-                // Tính tiền giảm dựa trên tổng tiền ban đầu
-                this.giamGia = this.tongTienHoaDonBanDau * (phanTram);
-                
-                // Cập nhật lại giao diện
-                capNhatTongTien();
-                
-                // Nếu đang chọn Bank/Momo thì cập nhật luôn số tiền khách trả
-                if (!hinhThucThanhToan.equals("Tiền mặt")) {
-                    soTienKhachDua = tongTienSauGiamGia;
-                    txtKhachDua.setText(dinhDangTien.format(soTienKhachDua));
-                }
-
-                JOptionPane.showMessageDialog(this, 
-                    "Đã áp dụng: " + khuyenMaiDaChon.getTenKM(), 
-                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
+        for (int i = 0; i < options.length; i++) {
+            if (options[i].equals(selected)) {
+                khuyenMaiDaChon = ds.get(i);
             }
         }
+
+        // Cập nhật giảm giá KM (KHÔNG ĐỤNG TỚI GIẢM GIÁ TV)
+        giamGiaKM = tongTienHoaDonBanDau * khuyenMaiDaChon.getPhanTramGiam();
+
+        capNhatTongTien();
+
+        JOptionPane.showMessageDialog(this,
+            "Áp dụng KM: " + khuyenMaiDaChon.getTenKM());
     }
 }

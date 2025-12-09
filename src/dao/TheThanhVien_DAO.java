@@ -160,13 +160,13 @@ public class TheThanhVien_DAO {
     }
 
     // =========================================================
-    //  PHÁT SINH MÃ THẺ MỚI (TTVxxx)
+    //  PHÁT SINH MÃ THẺ MỚI (TVxxx)
     // =========================================================
     public String phatSinhMaThe() throws SQLException {
         Connection con = ConnectDB.getConnection();
-        String sql = "SELECT MAX(maThe) FROM THETHANHVIEN WHERE maThe LIKE 'TTV%'";
+        String sql = "SELECT MAX(maThe) FROM THETHANHVIEN WHERE maThe LIKE 'TV%'";
 
-        String maMoi = "TTV001";
+        String maMoi = "TV001";
 
         try (PreparedStatement stmt = con.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
@@ -175,10 +175,10 @@ public class TheThanhVien_DAO {
                 String maMax = rs.getString(1);
                 if (maMax != null) {
                     try {
-                        int so = Integer.parseInt(maMax.substring(3)) + 1;
-                        maMoi = String.format("TTV%03d", so);
+                        int so = Integer.parseInt(maMax.substring(2)) + 1;
+                        maMoi = String.format("TV%03d", so);
                     } catch (Exception e) {
-                        maMoi = "TTV001"; // fallback
+                        maMoi = "TV001"; // fallback
                     }
                 }
             }
