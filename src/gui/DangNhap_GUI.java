@@ -117,14 +117,14 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
 	        // Nếu người dùng nhập thêm khoảng trắng đầu/cuối → báo lỗi
 	        if (!userInput.equals(userInput.trim())) {
 	            JOptionPane.showMessageDialog(this,
-	                "Tên đăng nhập không được chứa khoảng trắng!",
+	                "Tên đăng nhập hoặc mật khẩu không đúng!",
 	                "Lỗi", JOptionPane.ERROR_MESSAGE);
 	            return;
 	        }
 
 	        if (!passInput.equals(passInput.trim())) {
 	            JOptionPane.showMessageDialog(this,
-	                "Mật khẩu không được chứa khoảng trắng!",
+	            	"Tên đăng nhập hoặc mật khẩu không đúng!",
 	                "Lỗi", JOptionPane.ERROR_MESSAGE);
 	            return;
 	        }
