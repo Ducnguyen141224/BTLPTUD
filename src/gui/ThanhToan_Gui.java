@@ -834,7 +834,7 @@ public class ThanhToan_Gui extends JPanel {
                 g2.drawString(dinhDangTien.format(tongTienHoaDonBanDau), 300, y);
                 y += 18;
 
-                // TỔNG GIẢM GIÁ
+                // TỔNG GIẢM GIÁ (Đã bỏ CK)
                 double tongGiamGia = giamGiaTV + giamGiaKM;
                 g2.drawString("Giảm giá:", 10, y);
                 g2.drawString(dinhDangTien.format(tongGiamGia), 300, y);
@@ -862,35 +862,6 @@ public class ThanhToan_Gui extends JPanel {
                 g2.drawString("Tiền thừa:", 10, y);
                 g2.drawString(dinhDangTien.format(soTienKhachDua - tongSauGiam), 300, y);
                 y += 25;
-
-                // =======================================================
-                // ====== PHẦN MỚI: VẼ MÃ QR VÀO HÓA ĐƠN ======
-                // =======================================================
-                // Lấy hình ảnh từ lblQR (nơi đã hiển thị mã VietQR)
-                if (lblQR.getIcon() != null && lblQR.getIcon() instanceof ImageIcon) {
-                    Image imgQR = ((ImageIcon) lblQR.getIcon()).getImage();
-                    
-                    if (imgQR != null) {
-                        int qrSize = 100; // Kích thước QR trên giấy in (100x100 px)
-                        // Tính toán vị trí X để căn giữa (Giả sử khổ giấy rộng ~380-400px)
-                        int xCenter = (400 - qrSize) / 2; 
-                        
-                        // Vẽ ảnh QR
-                        g2.drawImage(imgQR, xCenter, y, qrSize, qrSize, null);
-                        
-                        // Di chuyển y xuống dưới ảnh QR
-                        y += qrSize + 5;
-                        
-                        // Thêm dòng chú thích nhỏ dưới QR
-                        g2.setFont(new Font("Arial", Font.PLAIN, 10));
-                        String note = "Quét mã để thanh toán";
-                        int noteWidth = g2.getFontMetrics().stringWidth(note);
-                        g2.drawString(note, (400 - noteWidth) / 2, y);
-                        
-                        y += 20; // Khoảng cách tới dòng cảm ơn
-                    }
-                }
-                // =======================================================
 
                 // ====== CHÂN BILL ======
                 g2.setFont(new Font("Arial", Font.ITALIC, 12));
@@ -1049,5 +1020,8 @@ public class ThanhToan_Gui extends JPanel {
 
         JOptionPane.showMessageDialog(this,
                 "Áp dụng KM: " + khuyenMaiDaChon.getTenKM());
+    }
+    public boolean isDaThanhToanXong() {
+        return daThanhToanXong;
     }
 }

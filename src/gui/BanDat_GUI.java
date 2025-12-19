@@ -5,6 +5,7 @@ import javax.swing.border.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.net.URL;
 import java.sql.SQLException;
 
 import com.toedter.calendar.JDateChooser;
@@ -85,19 +86,39 @@ public class BanDat_GUI extends JPanel {
         addEventListeners();
     }
     
+    // --- HÀM HỖ TRỢ LẤY ICON ---
+    private ImageIcon getIcon(String tenFile, int width, int height) {
+        try {
+            URL url = getClass().getResource("/image/" + tenFile);
+            if (url == null) return null;
+            ImageIcon icon = new ImageIcon(url);
+            Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+            return new ImageIcon(img);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
     private JPanel createHeaderPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setPreferredSize(new Dimension(0, 80));
         panel.setBackground(new Color(76, 175, 80));
         panel.setBorder(new EmptyBorder(15, 30, 15, 30));
         
-        // Title
-        JLabel lblTitle = new JLabel("🍽️ ĐẶT BÀN");
+        // Title - Sửa icon
+        JLabel lblTitle = new JLabel("ĐẶT BÀN");
+        ImageIcon iconTitle = getIcon("reservation.png", 40, 40);
+        if (iconTitle != null) lblTitle.setIcon(iconTitle);
+        else lblTitle.setText("🍽️ ĐẶT BÀN");
+        
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 32));
         lblTitle.setForeground(Color.WHITE);
         
-        // Nút Gọi món
-        btnGoiMon = new JButton("🍜 Gọi Món");
+        // Nút Gọi món - Sửa icon
+        btnGoiMon = new JButton("Gọi Món");
+        ImageIcon iconGoiMon = getIcon("menu.png", 24, 24);
+        if (iconGoiMon != null) btnGoiMon.setIcon(iconGoiMon);
+        
         btnGoiMon.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnGoiMon.setPreferredSize(new Dimension(140, 45));
         btnGoiMon.setBackground(COLOR_SECONDARY);
@@ -115,7 +136,7 @@ public class BanDat_GUI extends JPanel {
     private JPanel createBanCardsPanel() {
         JPanel mainPanel = new JPanel(new BorderLayout(0, 15));
         mainPanel.setBackground(COLOR_BG);
-        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 10));
+        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 10)); 
         
         // Filter panel
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
@@ -149,137 +170,211 @@ public class BanDat_GUI extends JPanel {
     
     private JPanel createBanCard(Ban ban) {
         JPanel card = new JPanel();
-        card.setLayout(new BorderLayout(10, 10));
-        card.setBackground(COLOR_CARD_BG);
-        card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(220, 220, 220), 2, true),
-            new EmptyBorder(15, 15, 15, 15)
-        ));
+        card.setLayout(new BorderLayout(5, 5));
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
         card.setPreferredSize(new Dimension(220, 180));
         
-        // Icon bàn
-        JLabel lblIcon = new JLabel(getTableIcon(ban.getLoaiBan()), SwingConstants.CENTER);
-        
-        // Thông tin bàn
-        JPanel infoPanel = new JPanel();
-        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
-        infoPanel.setOpaque(false);
+        // 1. XỬ LÝ MÀU SẮC & TRẠNG THÁI
+        String trangThai = ban.getTrangThai().trim(); // Xóa khoảng trắng thừa
+        Color mauNen;
+        Color mauVien;
+        Color mauChu;
+        String textTrangThai;
+
+        // Logic màu sắc: Trống (Xanh) - Đang dùng (Vàng) - Đã đặt (Đỏ)
+        if (trangThai.equalsIgnoreCase("Trống")) {
+            // MÀU XANH LÁ
+            mauNen = new Color(225, 255, 225); 
+            mauVien = new Color(40, 167, 69);  
+            mauChu = new Color(0, 100, 0);
+            textTrangThai = "TRỐNG";
+            
+        } else if (trangThai.equalsIgnoreCase("Đang sử dụng")) {
+            // --- SỬA THÀNH MÀU VÀNG ---
+            mauNen = new Color(255, 253, 230); // Vàng kem nhạt
+            mauVien = new Color(255, 193, 7);  // Vàng cam đậm
+            mauChu = new Color(150, 100, 0);   // Chữ màu nâu đất
+            textTrangThai = "ĐANG SỬ DỤNG";
+            
+        } else if (trangThai.equalsIgnoreCase("Đã đặt")) {
+            // --- SỬA THÀNH MÀU ĐỎ ---
+            mauNen = new Color(255, 235, 235); // Đỏ hồng nhạt
+            mauVien = new Color(220, 53, 69);  // Đỏ đậm
+            mauChu = new Color(150, 0, 0);     // Chữ đỏ đậm
+            textTrangThai = "ĐÃ ĐẶT";
+            
+        } else {
+            // Mặc định (Xám)
+            mauNen = Color.WHITE;
+            mauVien = Color.GRAY;
+            mauChu = Color.BLACK;
+            textTrangThai = trangThai.toUpperCase();
+        }
+
+        card.setBackground(mauNen);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(mauVien, 2, true),
+            new EmptyBorder(10, 10, 10, 10)
+        ));
+
+        // 2. PHẦN TRÊN: TÊN BÀN + ICON
+        JPanel pnlTop = new JPanel(new BorderLayout());
+        pnlTop.setOpaque(false); // Để lộ màu nền của card
         
         JLabel lblMaBan = new JLabel(ban.getMaBan());
         lblMaBan.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblMaBan.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lblMaBan.setForeground(mauChu);
         
-        JLabel lblLoaiBan = new JLabel(ban.getLoaiBan());
-        lblLoaiBan.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblLoaiBan.setForeground(new Color(100, 100, 100));
-        lblLoaiBan.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // Icon bàn
+        JLabel lblIcon = new JLabel();
+        ImageIcon iconBan = getTableIcon(ban.getLoaiBan());
+        if (iconBan != null) lblIcon.setIcon(iconBan);
         
-        JLabel lblSoGhe = new JLabel("👥 " + ban.getSoGhe() + " chỗ");
-        lblSoGhe.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblSoGhe.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pnlTop.add(lblMaBan, BorderLayout.WEST);
+        pnlTop.add(lblIcon, BorderLayout.EAST);
+
+        // 3. PHẦN GIỮA: THÔNG TIN CHI TIẾT
+        JPanel pnlCenter = new JPanel();
+        pnlCenter.setLayout(new BoxLayout(pnlCenter, BoxLayout.Y_AXIS));
+        pnlCenter.setOpaque(false);
+        pnlCenter.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+        JLabel lblLoai = new JLabel("Loại: " + ban.getLoaiBan());
+        lblLoai.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblLoai.setForeground(Color.DARK_GRAY); // Thêm màu chữ cho dễ đọc trên nền vàng
         
-        // Trạng thái
-        JLabel lblTrangThai = new JLabel(ban.getTrangThai());
-        lblTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblTrangThai.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblTrangThai.setOpaque(true);
-        lblTrangThai.setBorder(new EmptyBorder(5, 15, 5, 15));
-        
-        // Màu theo trạng thái
-        if ("Trống".equals(ban.getTrangThai())) {
-            lblTrangThai.setBackground(new Color(200, 255, 200));
-            lblTrangThai.setForeground(new Color(0, 120, 0));
-            card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(76, 175, 80), 2, true),
-                new EmptyBorder(15, 15, 15, 15)
-            ));
-        } else if ("Đã đặt".equals(ban.getTrangThai())) {
-            lblTrangThai.setBackground(new Color(255, 200, 200));
-            lblTrangThai.setForeground(new Color(180, 0, 0));
-        } else {
-            lblTrangThai.setBackground(new Color(255, 255, 150));
-            lblTrangThai.setForeground(new Color(150, 100, 0));
-        }
-        
-        infoPanel.add(lblMaBan);
-        infoPanel.add(Box.createVerticalStrut(5));
-        infoPanel.add(lblLoaiBan);
-        infoPanel.add(Box.createVerticalStrut(3));
-        infoPanel.add(lblSoGhe);
-        infoPanel.add(Box.createVerticalStrut(8));
-        infoPanel.add(lblTrangThai);
-        
-        card.add(lblIcon, BorderLayout.NORTH);
-        card.add(infoPanel, BorderLayout.CENTER);
-        
-        // Click event
+        JLabel lblGhe = new JLabel("Số ghế: " + ban.getSoGhe());
+        lblGhe.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblGhe.setForeground(Color.DARK_GRAY);
+        ImageIcon iconUser = getIcon("user.png", 14, 14);
+        if(iconUser != null) lblGhe.setIcon(iconUser);
+
+        pnlCenter.add(lblLoai);
+        pnlCenter.add(Box.createVerticalStrut(5));
+        pnlCenter.add(lblGhe);
+
+        // 4. PHẦN DƯỚI: TRẠNG THÁI TO RÕ
+        JLabel lblStatusText = new JLabel(textTrangThai, SwingConstants.CENTER);
+        lblStatusText.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblStatusText.setForeground(Color.WHITE);
+        lblStatusText.setOpaque(true);
+        lblStatusText.setBackground(mauVien); // Nền chữ giống màu viền
+        lblStatusText.setBorder(new EmptyBorder(5, 0, 5, 0)); // Padding cho chữ
+
+        // 5. RÁP CÁC PHẦN VÀO CARD
+        card.add(pnlTop, BorderLayout.NORTH);
+        card.add(pnlCenter, BorderLayout.CENTER);
+        card.add(lblStatusText, BorderLayout.SOUTH);
+
+        // 6. XỬ LÝ SỰ KIỆN CLICK
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 chonBan(ban, card);
             }
-            
             @Override
             public void mouseEntered(MouseEvent e) {
-                card.setBackground(new Color(245, 245, 255));
+                // Khi hover thì làm đậm màu viền hơn chút
+                card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(mauVien.darker(), 3, true),
+                    new EmptyBorder(9, 9, 9, 9)
+                ));
             }
-            
             @Override
             public void mouseExited(MouseEvent e) {
+                // Trả về trạng thái bình thường (trừ khi đang được chọn)
                 if (banDangChon == null || !banDangChon.getMaBan().equals(ban.getMaBan())) {
-                    card.setBackground(COLOR_CARD_BG);
-                }
-            }
-        });
-        
-        return card;
-    }
-    
-    private String getTableIcon(String loaiBan) {
-        // Sử dụng emoji hoặc text làm icon
-        switch (loaiBan) {
-            case "Bàn nhỏ": return "🪑";
-            case "Bàn vừa": return "🍽️";
-            case "Bàn lớn": return "🍴";
-            case "Phòng VIP": return "👑";
-            default: return "🪑";
-        }
-    }
-    
-    private void chonBan(Ban ban, JPanel card) {
-        // --- ĐOẠN SỬA ĐỔI: Bỏ phần if check chặn chọn bàn ---
-        
-        // Bỏ chọn card cũ (nếu có)
-        if (banDangChon != null) {
-            // Tìm component cũ để reset màu (Duyệt qua danh sách các card)
-            // Lưu ý: card cũ có thể không còn là đối tượng 'card' hiện tại
-            // Cách đơn giản nhất là reset màu tất cả hoặc lưu tham chiếu card cũ
-            for (Component comp : pnlBanCards.getComponents()) {
-                if (comp instanceof JPanel) {
-                    comp.setBackground(COLOR_CARD_BG);
-                    // Reset viền nếu cần
-                    ((JPanel) comp).setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(new Color(220, 220, 220), 2, true),
-                        new EmptyBorder(15, 15, 15, 15)
+                    card.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(mauVien, 2, true),
+                        new EmptyBorder(10, 10, 10, 10)
                     ));
                 }
             }
+        });
+
+        return card;
+    }
+    
+    // --- SỬA HÀM LẤY ICON BÀN ---
+    private ImageIcon getTableIcon(String loaiBan) {
+        String fileName = "table_small.png"; // Mặc định
+        switch (loaiBan) {
+            case "Bàn 2 người": fileName = "table_small.png"; break;
+            case "Bàn 4 người": fileName = "table_medium.png"; break;
+            case "Bàn 6 người": fileName = "table_medium.png"; break;
+            case "Bàn 8 người": fileName = "table_large.png"; break;
+            case "Bàn 10 người": fileName = "table_large.png"; break;
+            case "Phòng VIP": fileName = "table_vip.png"; break;
         }
-        
-        // Chọn card mới
-        banDangChon = ban;
-        
-        // Highlight card được chọn
-        card.setBackground(new Color(200, 230, 255)); // Màu xanh nhạt để biết đang chọn
-        card.setBorder(BorderFactory.createCompoundBorder(
-             BorderFactory.createLineBorder(COLOR_PRIMARY, 2, true),
-             new EmptyBorder(15, 15, 15, 15)
-        ));
-        
-        // Debug: In ra console để kiểm tra
-        System.out.println("Đã chọn bàn: " + ban.getMaBan() + " - Trạng thái: " + ban.getTrangThai());
-    }    
+        // Thử load ảnh 64x64 cho rõ
+        return getIcon(fileName, 64, 64);
+    }
+    
+  
+
+ private void chonBan(Ban ban, JPanel card) {
+     
+     // ============================
+     // BƯỚC 1: BỎ CHỌN CARD CŨ VÀ RESET VỀ MÀU THEO TRẠNG THÁI
+     // ============================
+     if (banDangChon != null) {
+         for (int i = 0; i < pnlBanCards.getComponentCount(); i++) {
+             Component comp = pnlBanCards.getComponent(i);
+             if (comp instanceof JPanel) {
+                 JPanel oldCard = (JPanel) comp;
+                 
+                 // Lấy bàn tương ứng với card này
+                 if (i < danhSachBanHienTai.size()) {
+                     Ban banCuaCard = danhSachBanHienTai.get(i);
+                     String trangThai = banCuaCard.getTrangThai().trim();
+                     
+                     // ⭐⭐⭐ XÁC ĐỊNH MÀU NỀN THEO TRẠNG THÁI
+                     Color mauNen;
+                     Color mauVien;
+                     
+                     if (trangThai.equalsIgnoreCase("Trống")) {
+                         mauNen = new Color(225, 255, 225);  // Xanh lá nhạt
+                         mauVien = new Color(40, 167, 69);   // Xanh lá đậm
+                     } else if (trangThai.equalsIgnoreCase("Đang sử dụng")) {
+                         mauNen = new Color(255, 253, 230);  // Vàng nhạt
+                         mauVien = new Color(255, 193, 7);   // Vàng đậm
+                     } else if (trangThai.equalsIgnoreCase("Đã đặt")) {
+                         mauNen = new Color(255, 235, 235);  // Đỏ nhạt
+                         mauVien = new Color(220, 53, 69);   // Đỏ đậm
+                     } else {
+                         mauNen = Color.WHITE;               // Mặc định
+                         mauVien = Color.GRAY;
+                     }
+                     
+                     // Reset về màu theo trạng thái
+                     oldCard.setBackground(mauNen);
+                     oldCard.setBorder(BorderFactory.createCompoundBorder(
+                         BorderFactory.createLineBorder(mauVien, 2, true),
+                         new EmptyBorder(10, 10, 10, 10)
+                     ));
+                 }
+             }
+         }
+     }
+     
+     // ============================
+     // BƯỚC 2: CHỌN CARD MỚI VÀ HIGHLIGHT
+     // ============================
+     banDangChon = ban;
+     
+     // Highlight card được chọn bằng viền xanh dương đậm
+     card.setBorder(BorderFactory.createCompoundBorder(
+          BorderFactory.createLineBorder(COLOR_ACCENT, 4, true), // Viền dày 4px
+          new EmptyBorder(8, 8, 8, 8) // Giảm padding để bù cho viền dày hơn
+     ));
+     
+     // Có thể thêm hiệu ứng làm sáng nhẹ (tùy chọn)
+      Color mauHienTai = card.getBackground();
+      card.setBackground(new Color(	102, 204, 255));
+     
+     
+ }
+
     private JPanel createFormPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new GridBagLayout());
@@ -288,7 +383,7 @@ public class BanDat_GUI extends JPanel {
             new EmptyBorder(20, 10, 20, 20),
             BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                "📋 Thông Tin Đặt Bàn",
+                "Thông Tin Đặt Bàn", // Bỏ icon trong title border vì thường lỗi font
                 TitledBorder.LEFT,
                 TitledBorder.TOP,
                 new Font("Segoe UI", Font.BOLD, 16),
@@ -373,10 +468,15 @@ public class BanDat_GUI extends JPanel {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         buttonPanel.setOpaque(false);
         
-        btnDatBan = createStyledButton("✅ Đặt Bàn", COLOR_PRIMARY, 140);
-        btnLamMoi = createStyledButton("🔄 Làm Mới", new Color(158, 158, 158), 140);
-        btnTimBan = createStyledButton("🔍 Tìm Bàn", COLOR_ACCENT, 120);
-        
+        // --- SỬA ICON CÁC NÚT ---
+        btnDatBan = createStyledButton("Đặt Bàn", COLOR_PRIMARY, 140);
+      
+
+        btnLamMoi = createStyledButton("Làm Mới", new Color(158, 158, 158), 140);
+       
+
+        btnTimBan = createStyledButton("Tìm Bàn", COLOR_ACCENT, 120);
+      
         buttonPanel.add(btnDatBan);
         buttonPanel.add(btnLamMoi);
         buttonPanel.add(btnTimBan);
@@ -474,34 +574,43 @@ public class BanDat_GUI extends JPanel {
                 return;
             }
 
-            // 2. Validate trạng thái (Ngăn đặt chồng lên bàn đang có khách ngồi ăn)
-  
+            // 2. Validate trạng thái
             if (!"Trống".equals(banDangChon.getTrangThai())) {
                 JOptionPane.showMessageDialog(this, "Bàn này đang bận/đã đặt. Vui lòng chọn bàn khác.", "Bàn bận", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             
-            // 3. Tạo Entity
+            // 3. Tạo Entity BanDat
             String maDatBanMoi = banDatDAO.generateNewMaDatBan();
-            BanDat banDat = validateAndCreateBanDat(maDatBanMoi); // Hàm validate giữ nguyên
+            BanDat banDat = validateAndCreateBanDat(maDatBanMoi); 
             
             // Xử lý khách hàng
             KhachHang kh = khachHangDAO.themHoacLayKhachHang(banDat.getKhachHang());
             banDat.setKhachHang(kh);
             
-            // 4. LƯU VÀO CSDL (Quan trọng)
+            // 4. LƯU VÀO CSDL
             if (banDatDAO.addBanDat(banDat)) {
-                JOptionPane.showMessageDialog(this, 
-                    "Đặt bàn thành công! \nMã đơn: " + maDatBanMoi + "\n(Thông tin đã chuyển qua Danh Sách Đặt Bàn)", 
-                    "Thành công", 
-                    JOptionPane.INFORMATION_MESSAGE);
                 
-          
-                
-                lamMoiForm();
-              
-                if (refreshListener != null) {
-                    refreshListener.onDataChanged(); 
+                // CẬP NHẬT TRẠNG THÁI BÀN THÀNH 'Đã đặt'
+                if (banDAO.updateTrangThaiBan(banDangChon.getMaBan(), "Đã đặt")) {
+                    
+                    // ⭐⭐⭐ QUAN TRỌNG: Cập nhật trạng thái của đối tượng banDangChon
+                    banDangChon.setTrangThai("Đã đặt");
+                    
+                    JOptionPane.showMessageDialog(this, 
+                        "Đặt bàn thành công! Mã: " + maDatBanMoi, 
+                        "Thành công", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                    
+                    // Reset form và load lại danh sách bàn
+                    lamMoiForm();
+                    
+                    // Thông báo cho các tab khác (nếu có)
+                    if (refreshListener != null) {
+                        refreshListener.onDataChanged(); 
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Lưu đặt bàn thành công nhưng lỗi cập nhật trạng thái bàn!");
                 }
                 
             } else {
@@ -608,11 +717,12 @@ public class BanDat_GUI extends JPanel {
         // Reset combobox khu vực về Tất cả
         cboKhuVuc.setSelectedIndex(0);
         
-        // --- QUAN TRỌNG: Load lại toàn bộ bàn ---
-        loadBanCards(banDAO.getAllBan());
+        // ⭐ QUAN TRỌNG: Load lại toàn bộ bàn với trạng thái mới nhất từ DB
+        ArrayList<Ban> dsBanMoi = banDAO.getAllBan();
+        loadBanCards(dsBanMoi);
+      
     }
     
- // Thay thế hàm moGiaoDienGoiMon() cũ bằng hàm này
     private void moGiaoDienGoiMon() {
 
         // 1. Kiểm tra đã chọn bàn chưa
@@ -628,90 +738,85 @@ public class BanDat_GUI extends JPanel {
         String trangThai = banDangChon.getTrangThai();
 
         try {
-
-            // ⭐ LẤY THÔNG TIN ĐẶT BÀN ĐANG SỬ DỤNG (CÓ GIỜ CHECKIN)
-            BanDat banDatHienTai = banDatDAO.getBanDatDangSuDung(maBan);
-
-            if (banDatHienTai != null) {
-//                System.out.println("--- BÀN ĐANG SỬ DỤNG ---");
-//                System.out.println("Mã đặt bàn: " + banDatHienTai.getMaDatBan());
-//                System.out.println("Giờ check-in: " + banDatHienTai.getGioCheckIn());
-            }
-
             // ============================
-            // ⭐ TRƯỜNG HỢP BÀN TRỐNG
+            // TRƯỜNG HỢP 1: BÀN TRỐNG -> MỞ BÀN MỚI
             // ============================
             if ("Trống".equals(trangThai)) {
-
                 int confirm = JOptionPane.showConfirmDialog(this,
-                        "Bàn " + maBan + " đang trống.\n"
-                        + "Bạn có muốn mở bàn và bắt đầu gọi món không?",
+                        "Bàn " + maBan + " đang trống. Mở bàn để gọi món?",
                         "Xác nhận mở bàn",
                         JOptionPane.YES_NO_OPTION);
 
                 if (confirm == JOptionPane.YES_OPTION) {
-
-                    // 1. Tạo mã đặt bàn mới
+                    // Tạo dữ liệu mở bàn trực tiếp
                     String maDatBanMoi = banDatDAO.generateNewMaDatBan();
-
-                    // 2. Tạo khách hàng mặc định
                     KhachHang kh = new KhachHang(null, "Khách lẻ", "0000000000", "", false);
                     kh = khachHangDAO.themHoacLayKhachHang(kh);
-
-                    // 3. Chuẩn bị đối tượng bàn
                     Ban banObj = banDAO.getBanById(maBan);
                     LocalTime gioVao = LocalTime.now();
 
-                    // 4. Tạo bản ghi đặt bàn TRỰC TIẾP (không kiểm tra giờ)
-                    BanDat bdMoi = new BanDat(
-                            maDatBanMoi,
-                            kh,
-                            banObj,
-                            LocalDate.now(),
-                            LocalTime.now(),
-                            1,
-                            0,
-                            "Đang sử dụng",
-                            "Khách vào trực tiếp",
-                            gioVao
-                    );
+                    BanDat bdMoi = new BanDat(maDatBanMoi, kh, banObj, LocalDate.now(), LocalTime.now(), 1, 0, "Đang sử dụng", "Khách vào trực tiếp", gioVao);
 
-                    // 5. THÊM VÀO DB (KHÔNG KIỂM TRA TRÙNG GIỜ)
-                    banDatDAO.addBanDatTrucTiep(bdMoi);
-
-                    // 6. Cập nhật giờ checkin trong DB
-                    banDatDAO.updateGioCheckIn(maDatBanMoi, gioVao);
-
-                    // 7. Cập nhật trạng thái bàn
-                    capNhatTrangThaiBan(maBan, "Đang sử dụng");
-
-                    // 8. Mở giao diện gọi món
-                    moCuaSoGoiMon(maBan);
+                    // Thêm vào BanDat
+                    if(banDatDAO.addBanDatTrucTiep(bdMoi)) {
+                        banDatDAO.updateGioCheckIn(maDatBanMoi, gioVao);
+                        
+                        // --- QUAN TRỌNG: CẬP NHẬT TRẠNG THÁI BÀN ---
+                        if(banDAO.updateTrangThaiBan(maBan, "Đang sử dụng")) {
+                            
+                            // 1. Cập nhật đối tượng hiện tại
+                            banDangChon.setTrangThai("Đang sử dụng");
+                            
+                            // 2. Load lại toàn bộ giao diện để bàn đổi màu Đỏ/Vàng
+                            // (Phải load lại từ DB để đảm bảo đồng bộ nhất)
+                            ArrayList<Ban> dsBanMoi = banDAO.getAllBan();
+                            loadBanCards(dsBanMoi);
+                            
+                            // 3. Mở cửa sổ gọi món
+                            moCuaSoGoiMon(maBan);
+                            
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Lỗi cập nhật trạng thái bàn!");
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Lỗi tạo phiếu đặt bàn!");
+                    }
                 }
-
                 return;
             }
 
             // ============================
-            // ⭐ BÀN ĐÃ ĐẶT hoặc ĐANG SỬ DỤNG
+            // TRƯỜNG HỢP 2: BÀN ĐÃ ĐẶT -> CHUYỂN SANG ĐANG SỬ DỤNG
             // ============================
-            if ("Đã đặt".equals(trangThai) || "Đang sử dụng".equals(trangThai)) {
+            if ("Đã đặt".equals(trangThai)) {
+                // Nếu bàn "Đã đặt" (khách đặt trước giờ mới đến) -> Chuyển sang "Đang sử dụng"
+                if(banDAO.updateTrangThaiBan(maBan, "Đang sử dụng")) {
+                     
+                     // Cập nhật trạng thái
+                     banDangChon.setTrangThai("Đang sử dụng");
+                     
+                     // Load lại giao diện ngay lập tức
+                     ArrayList<Ban> dsBanMoi = banDAO.getAllBan();
+                     loadBanCards(dsBanMoi);
+                     
+                     moCuaSoGoiMon(maBan);
+                }
+                return;
+            }
+            
+            // ============================
+            // TRƯỜNG HỢP 3: BÀN ĐANG SỬ DỤNG
+            // ============================
+            if ("Đang sử dụng".equals(trangThai)) {
                 moCuaSoGoiMon(maBan);
                 return;
             }
 
-            JOptionPane.showMessageDialog(this,
-                    "Không thể gọi món cho bàn có trạng thái: " + trangThai,
-                    "Thông báo",
-                    JOptionPane.WARNING_MESSAGE);
-
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi xử lý gọi món: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Lỗi xử lý: " + e.getMessage());
         }
     }
-
-
     // Hàm phụ trợ để mở JFrame Gọi Món (Tách ra cho gọn)
     private void moCuaSoGoiMon(String maBan) {
         // Lấy cửa sổ cha hiện tại
