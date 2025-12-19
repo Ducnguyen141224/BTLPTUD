@@ -62,7 +62,42 @@ public class KhachHang_DAO {
         }
         return kh;
     }
-
+    /**
+     * Tìm khách hàng theo Mã, Tên hoặc SĐT (Tìm gần đúng).
+     * @param tuKhoa Từ khóa tìm kiếm.
+     * @return Danh sách các dòng dữ liệu (Object[]) để hiển thị lên bảng.
+     */
+    public ArrayList<Object[]> timKhachHangTongHop(String tuKhoa) {
+        ArrayList<Object[]> dsKetQua = new ArrayList<>();
+        try {
+            java.sql.Connection con = ConnectDB.getConnection();
+            // Câu truy vấn tìm kiếm trên 3 cột: maKH, hoTenKH, soDienThoai
+            String sql = "SELECT k.maKH, k.hoTenKH, t.maThe, k.soDienThoai, k.gioiTinh, k.email " +
+                         "FROM KhachHang k LEFT JOIN TheThanhVien t ON k.maKH = t.maKH " +
+                         "WHERE k.maKH LIKE ? OR k.hoTenKH LIKE ? OR k.soDienThoai LIKE ?";
+            
+            java.sql.PreparedStatement pst = con.prepareStatement(sql);
+            String searchPattern = "%" + tuKhoa + "%"; // Thêm % để tìm gần đúng
+            pst.setString(1, searchPattern);
+            pst.setString(2, searchPattern);
+            pst.setString(3, searchPattern);
+            
+            java.sql.ResultSet rs = pst.executeQuery();
+            while (rs.next()) {
+                String maKH = rs.getString("maKH");
+                String tenKH = rs.getString("hoTenKH");
+                String maThe = rs.getString("maThe") != null ? rs.getString("maThe") : "Chưa có";
+                String sdt = rs.getString("soDienThoai");
+                boolean gt = rs.getBoolean("gioiTinh");
+                String email = rs.getString("email");
+                
+                dsKetQua.add(new Object[] { maKH, tenKH, maThe, sdt, gt ? "Nam" : "Nữ", email });
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return dsKetQua;
+    }
    
     public KhachHang timKhachHangTheoSDT(String soDienThoai) {
         KhachHang kh = null;

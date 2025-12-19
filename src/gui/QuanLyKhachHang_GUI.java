@@ -264,7 +264,7 @@ public class QuanLyKhachHang_GUI extends JPanel {
         btnTim.setForeground(Color.WHITE); // Chữ trắng
 
         // Label hướng dẫn
-        JLabel lblTim = new JLabel("Tìm theo mã khách hàng:");
+        JLabel lblTim = new JLabel("Tìm khách hàng:");
         lblTim.setFont(new Font("Arial", Font.BOLD, 13));
         lblTim.setForeground(new Color(100, 100, 100)); // Màu xám
 
@@ -567,39 +567,49 @@ public class QuanLyKhachHang_GUI extends JPanel {
     /**
      * Xử lý sự kiện tìm kiếm khách hàng theo mã KH nhập vào ô tìm kiếm.
      */
+    /**
+     * Xử lý sự kiện tìm kiếm khách hàng theo từ khóa (Mã, Tên hoặc SĐT).
+     */
     private void timKiemKhachHang() {
-        String tuKhoa = txtTimKiem.getText().trim(); // Lấy từ khóa và xóa khoảng trắng thừa
+        String tuKhoa = txtTimKiem.getText().trim();
 
-        // Kiểm tra nếu ô tìm kiếm rỗng
+        // 1. Nếu ô tìm kiếm rỗng -> Tải lại toàn bộ bảng
         if (tuKhoa.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập Mã Khách Hàng cần tìm vào ô tìm kiếm!", "Chưa nhập mã", JOptionPane.WARNING_MESSAGE);
-            taiDuLieuVaoBang(); // Tải lại toàn bộ danh sách
+            taiDuLieuVaoBang();
             return;
         }
 
-        try {
-            // Gọi DAO để tìm dòng khách hàng theo mã (tìm chính xác)
-            Object[] dong = khDAO.layDongKhachHangTheoMa(tuKhoa);
+        // 2. Gọi DAO để tìm kiếm
+        // Lưu ý: Cần đảm bảo bạn đã thêm hàm timKhachHangTongHop vào DAO như hướng dẫn ở trên
+        ArrayList<Object[]> dsKetQua = khDAO.timKhachHangTongHop(tuKhoa);
 
-            modelBangKH.setRowCount(0); // Xóa dữ liệu cũ trên bảng
+        // 3. Cập nhật bảng
+        modelBangKH.setRowCount(0); // Xóa dữ liệu cũ
 
-            if (dong != null) {
-                // Trường hợp 1: Tìm thấy khách hàng
-                modelBangKH.addRow(dong); // Thêm dòng tìm thấy vào bảng
-                bangKH.setRowSelectionInterval(0, 0); // Tự động chọn dòng đó
-                hienThiDongDaChon();                   // Hiển thị thông tin lên form
-                JOptionPane.showMessageDialog(this, "Đã tìm thấy khách hàng có mã: " + tuKhoa, "Kết quả tìm kiếm", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                // Trường hợp 2: Không tìm thấy khách hàng
-                JOptionPane.showMessageDialog(this, "Không tìm thấy khách hàng nào có mã: '" + tuKhoa + "'.", "Không tìm thấy", JOptionPane.WARNING_MESSAGE);
-
-                // Tải lại toàn bộ danh sách sau khi thông báo
-                taiDuLieuVaoBang();
-                xoaTrangForm(); // Xóa trắng form luôn
+        if (!dsKetQua.isEmpty()) {
+            // Nếu tìm thấy
+            for (Object[] row : dsKetQua) {
+                modelBangKH.addRow(row);
             }
-        } catch (SQLException e) {
-            e.printStackTrace(); // In lỗi ra console
-            JOptionPane.showMessageDialog(this, "Lỗi khi thực hiện tìm kiếm!", "Lỗi Cơ Sở Dữ Liệu", JOptionPane.ERROR_MESSAGE);
+            
+            // Chọn dòng đầu tiên và hiển thị thông tin
+            bangKH.setRowSelectionInterval(0, 0);
+            hienThiDongDaChon();
+            
+            JOptionPane.showMessageDialog(this, 
+                "Tìm thấy " + dsKetQua.size() + " kết quả phù hợp.", 
+                "Kết quả tìm kiếm", 
+                JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            // Nếu không tìm thấy
+            JOptionPane.showMessageDialog(this, 
+                "Không tìm thấy khách hàng nào với từ khóa: '" + tuKhoa + "'.", 
+                "Không tìm thấy", 
+                JOptionPane.WARNING_MESSAGE);
+            
+            // Tải lại bảng và xóa trắng form
+            taiDuLieuVaoBang();
+            xoaTrangForm();
         }
     }
 

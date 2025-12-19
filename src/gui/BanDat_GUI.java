@@ -31,6 +31,7 @@ public class BanDat_GUI extends JPanel {
     private JTextField txtMaDatBan, txtTenKhachHang, txtSoDienThoai, txtSoNguoi, txtTienCoc; 
     private JDateChooser dcNgayDat;
     private JComboBox<String> cboGioDat, cboKhuVuc; 
+    private JComboBox<String> cboLocSoNguoi;
     private JTextArea txtGhiChu;
     
     private JButton btnDatBan, btnLamMoi, btnGoiMon, btnTimBan;; 
@@ -139,24 +140,46 @@ public class BanDat_GUI extends JPanel {
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 10)); 
         
         // Filter panel
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         filterPanel.setBackground(COLOR_BG);
         
+        // --- 1. Lọc Khu Vực ---
         JLabel lblFilter = new JLabel("Khu vực:");
         lblFilter.setFont(new Font("Segoe UI", Font.BOLD, 14));
         
         cboKhuVuc = new JComboBox<>(new String[]{"Tất cả", "Tầng 1", "Tầng 2", "Tầng 3"});
-        cboKhuVuc.setPreferredSize(new Dimension(150, 35));
+        cboKhuVuc.setPreferredSize(new Dimension(110, 35));
         cboKhuVuc.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         
+        // --- 2. Lọc Số Người (SỬA THÀNH COMBOBOX) ---
+        JLabel lblLocNguoi = new JLabel("Số ghế:");
+        lblLocNguoi.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        
+        // Các tùy chọn lọc (Bạn có thể thêm tùy ý)
+        String[] optionsSoNguoi = {"Tất cả", "2 người", "4 người", "6 người", "8 người", "10 người", "VIP"};
+        cboLocSoNguoi = new JComboBox<>(optionsSoNguoi);
+        cboLocSoNguoi.setPreferredSize(new Dimension(120, 35));
+        cboLocSoNguoi.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        
+        // Add vào panel
         filterPanel.add(lblFilter);
         filterPanel.add(cboKhuVuc);
         
+        filterPanel.add(Box.createHorizontalStrut(15)); 
+        filterPanel.add(new JSeparator(SwingConstants.VERTICAL)); 
+        filterPanel.add(Box.createHorizontalStrut(15));
+        
+        filterPanel.add(lblLocNguoi);
+        filterPanel.add(cboLocSoNguoi);
+        
+        // Nút lọc (Optional - có thể bỏ nếu muốn lọc tự động khi chọn combo)
+        // filterPanel.add(btnLocNhanh); 
+        
         mainPanel.add(filterPanel, BorderLayout.NORTH);
         
-        // Cards container với scroll
+        // Cards container
         pnlBanCards = new JPanel();
-        pnlBanCards.setLayout(new GridLayout(0, 3, 15, 15)); // 3 cột
+        pnlBanCards.setLayout(new GridLayout(0, 3, 15, 15)); 
         pnlBanCards.setBackground(COLOR_BG);
         
         JScrollPane scrollPane = new JScrollPane(pnlBanCards);
@@ -338,9 +361,9 @@ public class BanDat_GUI extends JPanel {
                      } else if (trangThai.equalsIgnoreCase("Đang sử dụng")) {
                          mauNen = new Color(255, 253, 230);  // Vàng nhạt
                          mauVien = new Color(255, 193, 7);   // Vàng đậm
-                     } else if (trangThai.equalsIgnoreCase("Đã đặt")) {
-                         mauNen = new Color(255, 235, 235);  // Đỏ nhạt
-                         mauVien = new Color(220, 53, 69);   // Đỏ đậm
+//                     } else if (trangThai.equalsIgnoreCase("Đã đặt")) {
+//                         mauNen = new Color(255, 235, 235);  // Đỏ nhạt
+//                         mauVien = new Color(220, 53, 69);   // Đỏ đậm
                      } else {
                          mauNen = Color.WHITE;               // Mặc định
                          mauVien = Color.GRAY;
@@ -547,7 +570,7 @@ public class BanDat_GUI extends JPanel {
     
     private void addEventListeners() {
         cboKhuVuc.addActionListener(e -> locBanTheoKhuVuc());
-        
+        cboLocSoNguoi.addActionListener(e -> locBanTongHop());	
         btnDatBan.addActionListener(e -> datBanMoi());
         btnLamMoi.addActionListener(e -> lamMoiForm());
         btnGoiMon.addActionListener(e -> moGiaoDienGoiMon());
@@ -574,11 +597,11 @@ public class BanDat_GUI extends JPanel {
                 return;
             }
 
-            // 2. Validate trạng thái
-            if (!"Trống".equals(banDangChon.getTrangThai())) {
-                JOptionPane.showMessageDialog(this, "Bàn này đang bận/đã đặt. Vui lòng chọn bàn khác.", "Bàn bận", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+         
+//            if (!"Trống".equals(banDangChon.getTrangThai())) {
+//                JOptionPane.showMessageDialog(this, "Bàn này đang bận/đã đặt. Vui lòng chọn bàn khác.", "Bàn bận", JOptionPane.WARNING_MESSAGE);
+//                return;
+//            }
             
             // 3. Tạo Entity BanDat
             String maDatBanMoi = banDatDAO.generateNewMaDatBan();
@@ -591,34 +614,33 @@ public class BanDat_GUI extends JPanel {
             // 4. LƯU VÀO CSDL
             if (banDatDAO.addBanDat(banDat)) {
                 
-                // CẬP NHẬT TRẠNG THÁI BÀN THÀNH 'Đã đặt'
-                if (banDAO.updateTrangThaiBan(banDangChon.getMaBan(), "Đã đặt")) {
-                    
-                    // ⭐⭐⭐ QUAN TRỌNG: Cập nhật trạng thái của đối tượng banDangChon
-                    banDangChon.setTrangThai("Đã đặt");
-                    
-                    JOptionPane.showMessageDialog(this, 
-                        "Đặt bàn thành công! Mã: " + maDatBanMoi, 
-                        "Thành công", 
-                        JOptionPane.INFORMATION_MESSAGE);
-                    
-                    // Reset form và load lại danh sách bàn
-                    lamMoiForm();
-                    
-                    // Thông báo cho các tab khác (nếu có)
-                    if (refreshListener != null) {
-                        refreshListener.onDataChanged(); 
-                    }
-                } else {
-                    JOptionPane.showMessageDialog(this, "Lưu đặt bàn thành công nhưng lỗi cập nhật trạng thái bàn!");
+                // --- SỬA ĐỔI: KHÔNG CẬP NHẬT TRẠNG THÁI BÀN NỮA ---
+                // Chúng ta bỏ qua bước updateTrangThaiBan("Đã đặt") 
+                // để bàn vẫn giữ màu xanh (Trống) trên giao diện.
+                
+                JOptionPane.showMessageDialog(this, 
+                    "Đặt bàn thành công! Mã: " + maDatBanMoi + "\n(Thông tin đã lưu vào Danh Sách Đặt Bàn)", 
+                    "Hoàn tất", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+                // Chỉ reset form nhập liệu, KHÔNG load lại danh sách bàn (để giữ màu cũ)
+                // Hoặc nếu load lại thì vì CSDL chưa đổi trạng thái nên nó vẫn màu xanh.
+                lamMoiForm();
+                
+                // Thông báo cho các tab khác cập nhật dữ liệu (ví dụ tab Danh Sách Đặt Bàn)
+                if (refreshListener != null) {
+                    refreshListener.onDataChanged(); 
                 }
                 
             } else {
-                JOptionPane.showMessageDialog(this, "Lỗi thêm vào CSDL", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Lỗi thêm vào CSDL", "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
             }
+
         } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, 
+                ex.getMessage(), 
+                "Thông báo kiểm tra", 
+                JOptionPane.WARNING_MESSAGE); 
         }
     }
     
@@ -652,7 +674,7 @@ public class BanDat_GUI extends JPanel {
         // --- 4. Validation Tiền cọc ---
         double tienCoc = 0;
         try {
-            String tienCocStr = txtTienCoc.getText().trim().replaceAll("[^0-9]", "");
+            String tienCocStr = txtTienCoc.getText().trim();
             if (!tienCocStr.isEmpty()) {
                 tienCoc = Double.parseDouble(tienCocStr);
             }
@@ -667,8 +689,23 @@ public class BanDat_GUI extends JPanel {
         }
 
         Ban banDuocChon = banDAO.getBanById(banDangChon.getMaBan());
+        
+        // Lấy ngày và giờ từ giao diện
         LocalDate ngayDat = dcNgayDat.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
         LocalTime gioDat = LocalTime.parse(cboGioDat.getSelectedItem().toString());
+
+        // ========================================================================
+        // ⭐ SỬA LỖI Ở ĐÂY: KIỂM TRA THỜI GIAN
+        // ========================================================================
+        java.time.LocalDateTime thoiDiemDat = java.time.LocalDateTime.of(ngayDat, gioDat);
+        java.time.LocalDateTime thoiDiemHienTai = java.time.LocalDateTime.now();
+
+        // Kiểm tra: Nếu thời điểm đặt < thời điểm hiện tại => Báo lỗi ngay
+        if (thoiDiemDat.isBefore(thoiDiemHienTai)) {
+            throw new Exception("Giờ đặt (" + gioDat + " " + ngayDat + ") phải sau thời điểm hiện tại!");
+        }
+        // ========================================================================
+
         String trangThai = "Đã đặt";
         String ghiChu = txtGhiChu.getText();
 
@@ -683,8 +720,6 @@ public class BanDat_GUI extends JPanel {
         }
 
         // --- 7. Tạo đối tượng BanDat ---
-
-        // ⭐⭐ QUAN TRỌNG: thêm tham số giờCheckIn = null (để đồng nhất với constructor mới)
         BanDat banDat = new BanDat(
             maDatBanHienTai,
             khachHang,
@@ -695,7 +730,7 @@ public class BanDat_GUI extends JPanel {
             tienCoc,
             trangThai,
             ghiChu,
-            null   // <-- ⭐ GIỜ CHECK IN => LUÔN NULL KHI ĐẶT TRƯỚC
+            null   // Giờ check-in là null vì đây là đặt trước
         );
 
         return banDat;
@@ -716,7 +751,7 @@ public class BanDat_GUI extends JPanel {
         
         // Reset combobox khu vực về Tất cả
         cboKhuVuc.setSelectedIndex(0);
-        
+        cboLocSoNguoi.setSelectedIndex(0);
         // ⭐ QUAN TRỌNG: Load lại toàn bộ bàn với trạng thái mới nhất từ DB
         ArrayList<Ban> dsBanMoi = banDAO.getAllBan();
         loadBanCards(dsBanMoi);
@@ -738,83 +773,86 @@ public class BanDat_GUI extends JPanel {
         String trangThai = banDangChon.getTrangThai();
 
         try {
+
+            // ⭐ LẤY THÔNG TIN ĐẶT BÀN ĐANG SỬ DỤNG (CÓ GIỜ CHECKIN)
+            BanDat banDatHienTai = banDatDAO.getBanDatDangSuDung(maBan);
+
+            if (banDatHienTai != null) {
+//                System.out.println("--- BÀN ĐANG SỬ DỤNG ---");
+//                System.out.println("Mã đặt bàn: " + banDatHienTai.getMaDatBan());
+//                System.out.println("Giờ check-in: " + banDatHienTai.getGioCheckIn());
+            }
+
             // ============================
-            // TRƯỜNG HỢP 1: BÀN TRỐNG -> MỞ BÀN MỚI
+            // ⭐ TRƯỜNG HỢP BÀN TRỐNG
             // ============================
             if ("Trống".equals(trangThai)) {
+
                 int confirm = JOptionPane.showConfirmDialog(this,
-                        "Bàn " + maBan + " đang trống. Mở bàn để gọi món?",
+                        "Bàn " + maBan + " đang trống.\n"
+                        + "Bạn có muốn mở bàn và bắt đầu gọi món không?",
                         "Xác nhận mở bàn",
                         JOptionPane.YES_NO_OPTION);
 
                 if (confirm == JOptionPane.YES_OPTION) {
-                    // Tạo dữ liệu mở bàn trực tiếp
+
+                    // 1. Tạo mã đặt bàn mới
                     String maDatBanMoi = banDatDAO.generateNewMaDatBan();
+
+                    // 2. Tạo khách hàng mặc định
                     KhachHang kh = new KhachHang(null, "Khách lẻ", "0000000000", "", false);
                     kh = khachHangDAO.themHoacLayKhachHang(kh);
+
+                    // 3. Chuẩn bị đối tượng bàn
                     Ban banObj = banDAO.getBanById(maBan);
                     LocalTime gioVao = LocalTime.now();
 
-                    BanDat bdMoi = new BanDat(maDatBanMoi, kh, banObj, LocalDate.now(), LocalTime.now(), 1, 0, "Đang sử dụng", "Khách vào trực tiếp", gioVao);
+                    // 4. Tạo bản ghi đặt bàn TRỰC TIẾP (không kiểm tra giờ)
+                    BanDat bdMoi = new BanDat(
+                            maDatBanMoi,
+                            kh,
+                            banObj,
+                            LocalDate.now(),
+                            LocalTime.now(),
+                            1,
+                            0,
+                            "Đang sử dụng",
+                            "Khách vào trực tiếp",
+                            gioVao
+                    );
 
-                    // Thêm vào BanDat
-                    if(banDatDAO.addBanDatTrucTiep(bdMoi)) {
-                        banDatDAO.updateGioCheckIn(maDatBanMoi, gioVao);
-                        
-                        // --- QUAN TRỌNG: CẬP NHẬT TRẠNG THÁI BÀN ---
-                        if(banDAO.updateTrangThaiBan(maBan, "Đang sử dụng")) {
-                            
-                            // 1. Cập nhật đối tượng hiện tại
-                            banDangChon.setTrangThai("Đang sử dụng");
-                            
-                            // 2. Load lại toàn bộ giao diện để bàn đổi màu Đỏ/Vàng
-                            // (Phải load lại từ DB để đảm bảo đồng bộ nhất)
-                            ArrayList<Ban> dsBanMoi = banDAO.getAllBan();
-                            loadBanCards(dsBanMoi);
-                            
-                            // 3. Mở cửa sổ gọi món
-                            moCuaSoGoiMon(maBan);
-                            
-                        } else {
-                            JOptionPane.showMessageDialog(this, "Lỗi cập nhật trạng thái bàn!");
-                        }
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Lỗi tạo phiếu đặt bàn!");
-                    }
+                    // 5. THÊM VÀO DB (KHÔNG KIỂM TRA TRÙNG GIỜ)
+                    banDatDAO.addBanDatTrucTiep(bdMoi);
+
+                    // 6. Cập nhật giờ checkin trong DB
+                    banDatDAO.updateGioCheckIn(maDatBanMoi, gioVao);
+
+                    // 7. Cập nhật trạng thái bàn
+                    capNhatTrangThaiBan(maBan, "Đang sử dụng");
+
+                    // 8. Mở giao diện gọi món
+                    moCuaSoGoiMon(maBan);
                 }
+
                 return;
             }
 
             // ============================
-            // TRƯỜNG HỢP 2: BÀN ĐÃ ĐẶT -> CHUYỂN SANG ĐANG SỬ DỤNG
+            // ⭐ BÀN ĐÃ ĐẶT hoặc ĐANG SỬ DỤNG
             // ============================
-            if ("Đã đặt".equals(trangThai)) {
-                // Nếu bàn "Đã đặt" (khách đặt trước giờ mới đến) -> Chuyển sang "Đang sử dụng"
-                if(banDAO.updateTrangThaiBan(maBan, "Đang sử dụng")) {
-                     
-                     // Cập nhật trạng thái
-                     banDangChon.setTrangThai("Đang sử dụng");
-                     
-                     // Load lại giao diện ngay lập tức
-                     ArrayList<Ban> dsBanMoi = banDAO.getAllBan();
-                     loadBanCards(dsBanMoi);
-                     
-                     moCuaSoGoiMon(maBan);
-                }
-                return;
-            }
-            
-            // ============================
-            // TRƯỜNG HỢP 3: BÀN ĐANG SỬ DỤNG
-            // ============================
-            if ("Đang sử dụng".equals(trangThai)) {
+            if ("Đã đặt".equals(trangThai) || "Đang sử dụng".equals(trangThai)) {
                 moCuaSoGoiMon(maBan);
                 return;
             }
 
+            JOptionPane.showMessageDialog(this,
+                    "Không thể gọi món cho bàn có trạng thái: " + trangThai,
+                    "Thông báo",
+                    JOptionPane.WARNING_MESSAGE);
+
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi xử lý: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Lỗi xử lý gọi món: " + e.getMessage());
         }
     }
     // Hàm phụ trợ để mở JFrame Gọi Món (Tách ra cho gọn)
@@ -955,7 +993,58 @@ public class BanDat_GUI extends JPanel {
                 JOptionPane.INFORMATION_MESSAGE);
         }
     }
-    
+    private void locBanTongHop() {
+        // 1. Lấy tất cả bàn
+        ArrayList<Ban> allBan = banDAO.getAllBan();
+        ArrayList<Ban> result = new ArrayList<>();
+        
+        // 2. Lấy tiêu chí lọc
+        String khuVucChon = (String) cboKhuVuc.getSelectedItem();
+        String soNguoiChon = (String) cboLocSoNguoi.getSelectedItem();
+        
+        int soGheCanTim = 0;
+        
+        // Xử lý chuỗi từ ComboBox để lấy số (VD: "4 người" -> 4)
+        if (!"Tất cả".equals(soNguoiChon) && !"VIP".equals(soNguoiChon)) {
+            String numberOnly = soNguoiChon.replaceAll("[^0-9]", ""); 
+            try {
+                soGheCanTim = Integer.parseInt(numberOnly);
+            } catch (NumberFormatException e) {
+                soGheCanTim = 0;
+            }
+        }
+
+        // 3. Duyệt và lọc
+        for (Ban b : allBan) {
+            // --- Điều kiện 1: Khu vực ---
+            boolean thoaManKhuVuc = "Tất cả".equals(khuVucChon) || 
+                                    (b.getKhuVuc() != null && b.getKhuVuc().equalsIgnoreCase(khuVucChon));
+            
+            // --- Điều kiện 2: Số người ---
+            boolean thoaManSoNguoi = true;
+            
+            if ("VIP".equals(soNguoiChon)) {
+                // Nếu chọn VIP thì chỉ hiện bàn VIP
+                thoaManSoNguoi = b.getLoaiBan().toLowerCase().contains("vip");
+            } else if (soGheCanTim > 0) {
+                // --- SỬA ĐỔI TẠI ĐÂY: SO SÁNH BẰNG (==) ---
+                thoaManSoNguoi = (b.getSoGhe() == soGheCanTim);
+            }
+
+            // Cả 2 đều đúng mới lấy
+            if (thoaManKhuVuc && thoaManSoNguoi) {
+                result.add(b);
+            }
+        }
+        
+        // 4. Sắp xếp (Không cần thiết lắm nếu đã lọc chính xác số ghế, nhưng giữ lại cũng không sao)
+        if (soGheCanTim > 0) {
+            result.sort((b1, b2) -> Integer.compare(b1.getSoGhe(), b2.getSoGhe()));
+        }
+        
+        // 5. Hiển thị
+        loadBanCards(result);
+    }
     // Listener methods
     public void setDataRefreshListener(DataRefreshListener listener) {
         this.refreshListener = listener;

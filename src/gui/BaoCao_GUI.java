@@ -201,16 +201,45 @@ public class BaoCao_GUI extends JPanel {
     private void handleLocAction() {
         Date tuNgayUtil = txtTuNgay.getDate();
         Date denNgayUtil = txtDenNgay.getDate();
+        
+        // --- 1. KIỂM TRA RỖNG ---
+        if (tuNgayUtil == null || denNgayUtil == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Vui lòng chọn đầy đủ 'Từ ngày' và 'Đến ngày'!", 
+                "Thiếu thông tin", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Chuyển đổi sang LocalDate để so sánh
+        LocalDate tuNgay = tuNgayUtil.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate denNgay = denNgayUtil.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+
+        // --- 2. KIỂM TRA LOGIC NGÀY ---
+        if (tuNgay.isAfter(denNgay)) {
+            JOptionPane.showMessageDialog(this, 
+                "'Từ ngày' phải nhỏ hơn hoặc bằng 'Đến ngày'!", 
+                "Lỗi chọn ngày", 
+                JOptionPane.ERROR_MESSAGE);
+            return; // Dừng lại, không tải dữ liệu
+        }
+        
+        // --- 3. KIỂM TRA NGÀY TƯƠNG LAI (Optional - Tùy chọn) ---
+        // Nếu không muốn cho phép chọn ngày tương lai:
+        /*
+        if (tuNgay.isAfter(LocalDate.now()) || denNgay.isAfter(LocalDate.now())) {
+             JOptionPane.showMessageDialog(this, "Ngày chọn không được vượt quá ngày hiện tại!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+             return;
+        }
+        */
+
+        // --- 4. TẢI DỮ LIỆU NẾU HỢP LỆ ---
         String thongKeTheo = (String) cboThongKeTheo.getSelectedItem();
-
-        LocalDate tuNgay = (tuNgayUtil != null) ? tuNgayUtil.toInstant().atZone(ZoneId.systemDefault()).toLocalDate() : LocalDate.now().minusMonths(1);
-        LocalDate denNgay = (denNgayUtil != null) ? denNgayUtil.toInstant().atZone(ZoneId.systemDefault()).toLocalDate() : LocalDate.now();
-
+        
         updateSummaryBoxes(tuNgay, denNgay);
         updateTopMonTable(tuNgay, denNgay, 5);
         updateChartData(tuNgay, denNgay, thongKeTheo);
     }
-
     private void updateSummaryBoxes(LocalDate tuNgay, LocalDate denNgay) {
         double tongDoanhThu = baoCaoDAO.tinhTongDoanhThu(tuNgay, denNgay);
         double tongTienDatBan = baoCaoDAO.tinhTongTienDatBan(tuNgay, denNgay);

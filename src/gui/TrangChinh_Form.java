@@ -2,12 +2,9 @@ package gui;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.sql.SQLException;
 import javax.swing.*;
 
-
 import connectDB.ConnectDB;
-
 
 public class TrangChinh_Form extends JFrame implements ActionListener {
     private static final long serialVersionUID = 1L;
@@ -16,6 +13,15 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
     private JPanel pnlContent;
     private JButton btndangxuat;
     
+    // --- 1. BIẾN QUẢN LÝ TRẠNG THÁI ACTIVE ---
+    private JButton currentBtn = null; // Lưu nút đang được chọn
+    
+    // Màu sắc chủ đạo
+    private Color colorNen = new Color(255, 216, 164);
+    private Color colorNhat = new Color(255, 231, 188);
+    private Color colorDam = new Color(255, 178, 44);
+    private Font fontMenu = new Font("Segoe UI", Font.BOLD, 14);
+
     public TrangChinh_Form() {
         setTitle("Nhà hàng TripleND");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -32,16 +38,59 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         pTrai.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10)); 
         
         // Logo
-        ImageIcon logoIcon = new ImageIcon("src/image/logo.png");
-        JLabel lblLogo = new JLabel(logoIcon);
-        Image scaledImage = logoIcon.getImage().getScaledInstance(200, 150, Image.SCALE_SMOOTH);
-        ImageIcon scaledIcon = new ImageIcon(scaledImage);
-        lblLogo.setIcon(scaledIcon);
-        lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblLogo.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
-        pTrai.add(lblLogo);
+        try {
+            ImageIcon logoIcon = new ImageIcon("src/image/logo.png");
+            if (logoIcon.getIconWidth() > 0) {
+                JLabel lblLogo = new JLabel();
+                Image scaledImage = logoIcon.getImage().getScaledInstance(200, 150, Image.SCALE_SMOOTH);
+                lblLogo.setIcon(new ImageIcon(scaledImage));
+                lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
+                lblLogo.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
+                pTrai.add(lblLogo);
+            } else {
+                JLabel lblText = new JLabel("TRIPLE ND");
+                lblText.setFont(new Font("Arial", Font.BOLD, 24));
+                lblText.setAlignmentX(Component.CENTER_ALIGNMENT);
+                lblText.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
+                pTrai.add(lblText);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         
-        // --- Nút điều hướng (menu bên trái) ---
+        pTrai.setBackground(colorNen);
+
+        // --- Content phải (CardLayout) ---
+        cardLayout = new CardLayout();
+        pnlContent = new JPanel(cardLayout);
+
+        // Khởi tạo các module (Giữ nguyên logic try-catch tách biệt của bạn)
+        try {
+            pnlContent.add(new Dashboard_GUI(), "Dashboard");
+        } catch (Exception e) {
+            pnlContent.add(new JPanel(), "Dashboard");
+        }
+
+        try {
+            BanDat_GUI pnlDatBan = new BanDat_GUI();
+            DanhSachBanDat_GUI pnlDanhSach = new DanhSachBanDat_GUI();
+            pnlDatBan.setDataRefreshListener(() -> pnlDanhSach.refreshData());
+            pnlDanhSach.setDataRefreshListener(() -> pnlDatBan.refreshData());
+            pnlContent.add(pnlDatBan, "PANEL_DAT_BAN");
+            pnlContent.add(pnlDanhSach, "PANEL_DS_DAT_BAN");
+        } catch (Exception e) {
+            pnlContent.add(new JLabel("Lỗi tải module Đặt bàn"), "PANEL_DAT_BAN");
+            pnlContent.add(new JLabel("Lỗi tải module Danh sách"), "PANEL_DS_DAT_BAN");
+        }
+
+        addModule(new MonAn_GUI(), "Quản lý món ăn");
+        addModule(new QuanLyKhachHang_GUI(), "Quản lý KH");
+        addModule(new NhanVien_GUI(), "Quản lý nhân viên");
+        addModule(new BaoCao_GUI(), "Báo cáo");
+        addModule(new KhuyenMai_GUI(), "Khuyến mãi");
+        addModule(new HoaDon_GUI(), "Quản lý hóa đơn");
+
+        // --- Danh sách menu ---
         String[] btnChucnang = {
             "Dashboard",
             "Quản lý bàn đặt",
@@ -55,7 +104,7 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
 
         String[] imgPaths = {
             "src/image/dashboard.png",
-            "src/image/ban.png",
+            "src/image/ban.png", // Bạn thay đổi icon tùy ý ở đây
             "src/image/monan.png",
             "src/image/khachhang.png",
             "src/image/nhanvien.png",
@@ -64,93 +113,39 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
             "src/image/khuyenmai.png",
         };
 
-        // Màu nền chính
-        Color colorNen = new Color(255, 216, 164);
-        Color colorNhat = new Color(255, 231, 188);
-        Color colorDam = new Color(255, 178, 44);
-        Font fontMenu = new Font("Segoe UI", Font.BOLD, 14);
-
-        pTrai.setBackground(colorNen);
-
-        // --- Content phải (CardLayout) ---
-        cardLayout = new CardLayout();
-        pnlContent = new JPanel(cardLayout);
-
-        // 💡 KHỞI TẠO CÁC PANEL CÓ KHẢ NĂNG LỖI TRONG TRY-CATCH
-        try {
-            // Thêm Trang chủ (không lỗi CSDL)
-            pnlContent.add(new TrangChu_GUI(), "Dashboard");
-
-            // 💡 SỬA: TẠO LIÊN KẾT GIỮA BanDat_GUI và DanhSachBanDat_GUI
-            BanDat_GUI pnlDatBan = new BanDat_GUI();
-            DanhSachBanDat_GUI pnlDanhSach = new DanhSachBanDat_GUI();
-
-            // 💡 Gửi tham chiếu của pnlDanhSach cho pnlDatBan
-            pnlDatBan.setDataRefreshListener(new DataRefreshListener() {
-                @Override
-                public void onDataChanged() {
-                    pnlDanhSach.refreshData(); // Gọi hàm tải lại của pnlDanhSach
-                }
-            });
-            
-            // 💡 Gửi tham chiếu của pnlDatBan cho pnlDanhSach
-            pnlDanhSach.setDataRefreshListener(new DataRefreshListener() {
-                @Override
-                public void onDataChanged() {
-                    pnlDatBan.refreshData(); // Gọi hàm tải lại của pnlDatBan
-                }
-            });
-
-            // Thêm 2 panel với TÊN KEY ĐÃ ĐỊNH NGHĨA
-            pnlContent.add(pnlDatBan, "PANEL_DAT_BAN");
-            pnlContent.add(pnlDanhSach, "PANEL_DS_DAT_BAN");
-            
-            // Thêm các panel còn lại
-            pnlContent.add(new Dashboard_GUI(), "Dashboard");
-            pnlContent.add(new MonAn_GUI(), "Quản lý món ăn");
-            pnlContent.add(new QuanLyKhachHang_GUI(), "Quản lý KH");
-            pnlContent.add(new NhanVien_GUI(), "Quản lý nhân viên");
-            pnlContent.add(new BaoCao_GUI(), "Báo cáo");
-            pnlContent.add(new KhuyenMai_GUI(), "Khuyến mãi");
-            pnlContent.add(new HoaDon_GUI(), "Quản lý hóa đơn");
-
-        } catch (Exception e) {
-             // Bắt các lỗi khác (ví dụ: NullPointerException nếu DAO chưa khởi tạo)
-            e.printStackTrace();
-             JOptionPane.showMessageDialog(this, 
-                "Lỗi khởi tạo giao diện: " + e.getMessage(), 
-                "Lỗi Khởi Tạo", 
-                JOptionPane.ERROR_MESSAGE);
-        }
-
-        // --- 💡 SỬA: Vòng lặp FOR để tạo nút menu ---
+        // --- Vòng lặp tạo nút ---
         for (int i = 0; i < btnChucnang.length; i++) {
             String label = btnChucnang[i];
             
-            // Sử dụng hàm helper để tạo nút đồng bộ
             JButton btn = createMenuButton(label, imgPaths[i], colorNhat, fontMenu);
 
-            // Xử lý sự kiện
             if (label.equals("Quản lý bàn đặt")) {
-                // Đây là nút đặc biệt, tạo JPopupMenu
-                btn.setText(label + "   ▼"); // Thêm mũi tên
+                btn.setText(label + "   ▼");
                 
-                JPopupMenu popupMenu = createBanDatPopupMenu(colorNhat, colorDam, fontMenu);
+                // Truyền nút cha (btn) vào để khi chọn con thì cha sáng
+                JPopupMenu popupMenu = createBanDatPopupMenu(btn); 
                 
-                // Hành động cho nút chính: Hiển thị popup
                 btn.addActionListener(e -> {
+                    setButtonActive(btn); // Click vào thì sáng ngay
                     popupMenu.show(btn, 0, btn.getHeight());
                 });
             } else {
-                // Đây là các nút bình thường
-                btn.addActionListener(e -> cardLayout.show(pnlContent, label));
+                btn.addActionListener(e -> {
+                    cardLayout.show(pnlContent, label);
+                    setButtonActive(btn); // Click vào thì sáng
+                });
+            }
+            
+            // Mặc định Dashboard sáng khi mở app
+            if (label.equals("Dashboard")) {
+                setButtonActive(btn);
             }
 
             pTrai.add(btn);
-            pTrai.add(Box.createRigidArea(new Dimension(0, 15))); // khoảng cách
+            pTrai.add(Box.createRigidArea(new Dimension(0, 15))); 
         }
 
-        
+        // Nút đăng xuất
         btndangxuat = createMenuButton("Đăng xuất", "src/image/dangxuat.png", colorNhat, fontMenu);
         btndangxuat.addActionListener(this);
         pTrai.add(btndangxuat);
@@ -160,15 +155,35 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         setVisible(true);
     }
     
-    /**
-     * Hàm helper để tạo nút menu (Tái sử dụng)
-     */
+    // --- 2. HÀM XỬ LÝ LOGIC ACTIVE (HIGHLIGHT) ---
+    private void setButtonActive(JButton btn) {
+        // Nếu có nút cũ đang active thì trả về màu nhạt
+        if (currentBtn != null && currentBtn != btn) {
+            currentBtn.setBackground(colorNhat);
+        }
+        // Set nút mới thành màu đậm
+        currentBtn = btn;
+        currentBtn.setBackground(colorDam);
+    }
+
+    private void addModule(JPanel panel, String key) {
+        try {
+            pnlContent.add(panel, key);
+        } catch (Exception e) {
+            pnlContent.add(new JLabel("Lỗi tải module " + key), key);
+        }
+    }
+
     private JButton createMenuButton(String text, String iconPath, Color bgColor, Font font) {
         JButton btn = new JButton(text);
         
-        ImageIcon icon = new ImageIcon(iconPath);
-        Image img = icon.getImage().getScaledInstance(25, 25, Image.SCALE_SMOOTH);
-        btn.setIcon(new ImageIcon(img));
+        try {
+            ImageIcon icon = new ImageIcon(iconPath);
+            if(icon.getIconWidth() > 0) {
+                Image img = icon.getImage().getScaledInstance(25, 25, Image.SCALE_SMOOTH);
+                btn.setIcon(new ImageIcon(img));
+            }
+        } catch (Exception e) { }
         
         btn.setFont(font);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
@@ -176,58 +191,84 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         btn.setMaximumSize(new Dimension(250, 50));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        // Giữ nguyên viền và padding như cũ để không đổi kích thước
+        btn.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15)); 
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBackground(bgColor);
         btn.setForeground(Color.BLACK);
         
+        // --- 3. SỬA MOUSE LISTENER ĐỂ GIỮ MÀU ---
+        btn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                // Rê chuột vào thì luôn đậm
+                btn.setBackground(colorDam);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                // Chuột rời đi: Chỉ nhạt lại nếu KHÔNG PHẢI nút đang Active
+                if (btn != currentBtn) {
+                    btn.setBackground(colorNhat);
+                }
+            }
+        });
+        
         return btn;
     }
     
-    /**
-     * Hàm helper tạo JPopupMenu cho Quản lý bàn đặt
-     */
-    private JPopupMenu createBanDatPopupMenu(Color colorNhat, Color colorDam, Font fontMenu) {
+    // Nhận vào nút cha để highlight
+    private JPopupMenu createBanDatPopupMenu(JButton parentBtn) {
         JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.setBackground(colorNhat);
         popupMenu.setBorder(BorderFactory.createLineBorder(colorDam, 1));
         
-        JMenuItem itemFormDat = new JMenuItem("   📝 Form Đặt Bàn");
-        JMenuItem itemDSDat = new JMenuItem("   📋 Danh Sách Đặt Bàn");
+        // Dùng icon ảnh chuẩn
+        JMenuItem itemFormDat = createMenuItem("Form Đặt Bàn", "src/image/reservation.png"); 
+        JMenuItem itemDSDat = createMenuItem("Danh Sách Đặt Bàn", "src/image/list.png"); 
         
-        JMenuItem[] items = {itemFormDat, itemDSDat};
-        
-        for (JMenuItem item : items) {
-            item.setFont(fontMenu);
-            item.setBackground(colorNhat);
-            item.setPreferredSize(new Dimension(218, 40)); // Đảm bảo chiều rộng khớp
-            item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-            
-            // Hiệu ứng hover
-            item.addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) {
-                    item.setBackground(colorDam);
-                }
-                public void mouseExited(MouseEvent e) {
-                    item.setBackground(colorNhat);
-                }
-            });
-        }
-        
-        // Hành động cho nút "Form Đặt Bàn"
         itemFormDat.addActionListener(e -> {
             cardLayout.show(pnlContent, "PANEL_DAT_BAN");
+            setButtonActive(parentBtn); // Giữ nút cha sáng
         });
         
-        // Hành động cho nút "Danh Sách Đặt Bàn"
         itemDSDat.addActionListener(e -> {
             cardLayout.show(pnlContent, "PANEL_DS_DAT_BAN");
+            setButtonActive(parentBtn); // Giữ nút cha sáng
         });
 
         popupMenu.add(itemFormDat);
         popupMenu.add(itemDSDat);
 
         return popupMenu;
+    }
+
+    private JMenuItem createMenuItem(String text, String iconPath) {
+        JMenuItem item = new JMenuItem(text);
+        item.setFont(fontMenu);
+        item.setBackground(colorNhat);
+        item.setPreferredSize(new Dimension(218, 40));
+        item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        
+        try {
+            ImageIcon icon = new ImageIcon(iconPath);
+            if (icon.getIconWidth() > 0) {
+                Image img = icon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
+                item.setIcon(new ImageIcon(img));
+                item.setIconTextGap(10);
+            }
+        } catch (Exception e) { }
+
+        item.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                item.setBackground(colorDam);
+            }
+            public void mouseExited(MouseEvent e) {
+                item.setBackground(colorNhat);
+            }
+        });
+        
+        return item;
     }
 
     
@@ -238,19 +279,25 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
              int confirm = JOptionPane.showConfirmDialog(null, "Bạn có chắc chắn muốn đăng xuất?", "Xác nhận", JOptionPane.YES_NO_OPTION);
              if (confirm == JOptionPane.YES_OPTION) {
                 dispose();
-               
-                new DangNhap_GUI().setVisible(true); 
+                try {
+                    new DangNhap_GUI().setVisible(true); 
+                } catch (Exception ex) {
+                    System.exit(0);
+                }
              }
         }
     }
     
    
     public static void main(String[] args) {
-        ConnectDB.getInstance().connect();
+        try {
+            ConnectDB.getInstance().connect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         
         SwingUtilities.invokeLater(() -> {
             new TrangChinh_Form().setVisible(true);
         });
     }
-    
 }

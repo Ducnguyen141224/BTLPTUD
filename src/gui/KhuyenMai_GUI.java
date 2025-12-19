@@ -10,7 +10,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 import com.toedter.calendar.JDateChooser; 
 
@@ -32,90 +31,89 @@ public class KhuyenMai_GUI extends JPanel {
     private static final DateTimeFormatter DATE_FORMATTER_GUI = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final int TEXTFIELD_HEIGHT = 40; 
 
-
     public KhuyenMai_GUI() {
+        // 1. KẾT NỐI CSDL
         try {
             ConnectDB.getInstance().connect();
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Lỗi kết nối cơ sở dữ liệu: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
         khuyenMai_DAO = new KhuyenMai_DAO();
         
+        // 2. THIẾT LẬP LAYOUT CHÍNH
         setLayout(new BorderLayout(15, 15));
         setBackground(new Color(255, 239, 213)); 
         setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // 1. TIÊU ĐỀ
-        JLabel lblTitle = new JLabel("Quản Lý Khuyến Mãi");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 36));
-        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
-        
-        // Panel chứa Header, Search và Form
+        // 3. HEADER & FORM
         JPanel pnlTopContainer = new JPanel();
         pnlTopContainer.setLayout(new BoxLayout(pnlTopContainer, BoxLayout.Y_AXIS));
         pnlTopContainer.setBackground(getBackground());
         
+        // Tiêu đề
+        JLabel lblTitle = new JLabel("Quản Lý Khuyến Mãi");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lblTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
         pnlTopContainer.add(lblTitle);
-        pnlTopContainer.add(Box.createVerticalStrut(10)); 
-
-        // 2. THANH TÌM KIẾM VÀ BỘ LỌC
-        JPanel pnlSearchAndFilter = createSearchAndFilterPanel();
-        pnlTopContainer.add(pnlSearchAndFilter);
+        
+        // Thanh tìm kiếm
+        pnlTopContainer.add(createSearchAndFilterPanel());
         pnlTopContainer.add(Box.createVerticalStrut(15));
         
-        // 3. FORM NHẬP DỮ LIỆU VÀ NÚT
-        JPanel pnlFormAndButtons = createInputFormPanel();
-        pnlTopContainer.add(pnlFormAndButtons);
+        // Form nhập liệu
+        pnlTopContainer.add(createInputFormPanel());
 
         add(pnlTopContainer, BorderLayout.NORTH);
 
-        // 4. BẢNG DANH SÁCH
+        // 4. BẢNG DỮ LIỆU
         String[] cols = {"Mã", "Tên khuyến mãi", "Mô tả", "Giá trị", "Ngày bắt đầu", "Ngày kết thúc", "Trạng thái"};
-        model = new DefaultTableModel(cols, 0);
+        model = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Không cho sửa trực tiếp trên bảng
+            }
+        };
         table = new JTable(model);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
         table.setRowHeight(25);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0)); 
-        
         add(scroll, BorderLayout.CENTER);
         
-        // Load dữ liệu và thêm sự kiện
+        // 5. KHỞI TẠO DỮ LIỆU & SỰ KIỆN
         loadDataToTable();
         addTableClickListener();
         addActionListener(); 
         
-        // Thiết lập trạng thái ban đầu cho nút Sửa/Xóa
-        btnSua.setEnabled(false);
-        btnXoa.setEnabled(false);
+        // ⭐ QUAN TRỌNG: Gọi hàm này để tự động điền mã KM mới ngay khi mở form
+        xoaTrangForm();
     }
     
-    // PHƯƠNG THỨC TẠO GIAO DIỆN CON
+    // =========================================================================
+    // PHẦN 1: TẠO GIAO DIỆN (UI COMPONENTS)
+    // =========================================================================
     
     private JPanel createSearchAndFilterPanel() {
         JPanel pnl = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10)); 
         pnl.setBackground(getBackground()); 
         pnl.setMaximumSize(new Dimension(1000, 50));
         
-        // Text field tìm kiếm
         txtTimKiem = new JTextField(20);
         txtTimKiem.setPreferredSize(new Dimension(250, 35)); 
         styleTextField(txtTimKiem);
         
-        // Nút tìm kiếm 
         btnTim = new JButton("Tìm");
-        btnTim.setPreferredSize(new Dimension(100, 35));
+        btnTim.setPreferredSize(new Dimension(80, 35));
         btnTim.setBackground(Color.WHITE);
         
-        // ComboBox Trạng thái
         cboTrangThai = new JComboBox<>(new String[]{"Tất cả trạng thái", "Sắp diễn ra", "Đang diễn ra", "Đã kết thúc"});
         cboTrangThai.setPreferredSize(new Dimension(150, 35));
         
-        // Nút Xóa bộ lọc
-        btnXoaBoLoc = new JButton("Xóa bộ lọc");
+        btnXoaBoLoc = new JButton("Làm mới");
         btnXoaBoLoc.setPreferredSize(new Dimension(100, 35));
         btnXoaBoLoc.setBackground(Color.WHITE);
 
@@ -133,37 +131,40 @@ public class KhuyenMai_GUI extends JPanel {
         pnl.setBorder(new EmptyBorder(20, 20, 20, 20)); 
         pnl.setMaximumSize(new Dimension(1000, 450));
         
-        // Panel chứa các trường nhập liệu (GridBagLayout)
+        // --- Panel GridBagLayout cho các trường nhập ---
         JPanel pnlFields = new JPanel(new GridBagLayout());
         pnlFields.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 0.5; // Chia đều 2 cột
+        gbc.weightx = 0.5;
 
-        // Khởi tạo các fields
+        // Khởi tạo fields
         txtMaKM = createSizedTextField(TEXTFIELD_HEIGHT);
+        // ⭐ CẤU HÌNH CHO MÃ TỰ ĐỘNG: KHÔNG CHO SỬA
+        txtMaKM.setEditable(false);
+        txtMaKM.setBackground(new Color(230, 230, 230)); // Màu xám nhạt
+        txtMaKM.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
         txtTenKM = createSizedTextField(TEXTFIELD_HEIGHT);
         txtMoTa = createSizedTextField(TEXTFIELD_HEIGHT); 
         txtPhanTramGiam = createSizedTextField(TEXTFIELD_HEIGHT);
         dcNgayBD = createDateChooser(TEXTFIELD_HEIGHT);
         dcNgayKT = createDateChooser(TEXTFIELD_HEIGHT);
 
-        // Hàng 1: Mã KM & Tên KM
-        addField(pnlFields, gbc, "Mã khuyến mãi", txtMaKM, 0, 0);
+        // Add fields
+        addField(pnlFields, gbc, "Mã khuyến mãi (Auto)", txtMaKM, 0, 0);
         addField(pnlFields, gbc, "Tên khuyến mãi", txtTenKM, 1, 0);
         
-        // Hàng 2: Mô tả & Phần trăm giảm
         addField(pnlFields, gbc, "Mô tả", txtMoTa, 0, 1);
-        addField(pnlFields, gbc, "Phần trăm giảm", txtPhanTramGiam, 1, 1);
+        addField(pnlFields, gbc, "Phần trăm giảm (VD: 0.1 = 10%)", txtPhanTramGiam, 1, 1);
 
-        // Hàng 3: Ngày bắt đầu (Trái) & Ngày kết thúc (Phải)
         addField(pnlFields, gbc, "Ngày bắt đầu", dcNgayBD, 0, 2);
         addField(pnlFields, gbc, "Ngày kết thúc", dcNgayKT, 1, 2);
 
         pnl.add(pnlFields, BorderLayout.CENTER);
         
-        // Panel Nút chức năng 
+        // --- Panel Nút chức năng ---
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 20));
         pnlButtons.setBackground(Color.WHITE);
 
@@ -184,9 +185,7 @@ public class KhuyenMai_GUI extends JPanel {
         return pnl;
     }
     
-
-    // PHƯƠNG THỨC CHUNG & HÀM HỖ TRỢ
-  
+    // --- Các hàm Style hỗ trợ ---
     
     private JTextField createSizedTextField(int height) {
         JTextField textField = new JTextField(15);
@@ -232,14 +231,12 @@ public class KhuyenMai_GUI extends JPanel {
         btn.setFocusPainted(false);
         btn.setPreferredSize(new Dimension(width, 40));
         btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btn.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10)); 
     }
     
+    // =========================================================================
+    // PHẦN 2: LOGIC XỬ LÝ DỮ LIỆU & SỰ KIỆN
+    // =========================================================================
 
-    // 3. LOGIC DỮ LIỆU VÀ SỰ KIỆN (LOAD/LỌC/CLICK)
-    
-    
- 
     public void loadDataToTable(ArrayList<KhuyenMai> danhSachKM) {
         model.setRowCount(0); 
         
@@ -266,17 +263,12 @@ public class KhuyenMai_GUI extends JPanel {
         }
     }
     
-    // Phương thức gọi tải toàn bộ dữ liệu
     public void loadDataToTable() {
         loadDataToTable(null);
     }
     
-    /**
-     * Xác định trạng thái của khuyến mãi dựa trên ngày.
-     */
     private String getTrangThai(LocalDate ngayBatDau, LocalDate ngayKetThuc) {
         LocalDate homNay = LocalDate.now();
-        
         if (homNay.isBefore(ngayBatDau)) {
             return "Sắp diễn ra";
         } else if (homNay.isAfter(ngayKetThuc)) {
@@ -305,7 +297,7 @@ public class KhuyenMai_GUI extends JPanel {
             double phanTram = Double.parseDouble(giaTriStr) / 100.0;
             txtPhanTramGiam.setText(String.valueOf(phanTram)); 
             
-            // XỬ LÝ NGÀY CHO JDateChooser
+            // Xử lý ngày
             String ngayBDStr = model.getValueAt(selectedRow, 4).toString();
             String ngayKTStr = model.getValueAt(selectedRow, 5).toString();
 
@@ -315,7 +307,7 @@ public class KhuyenMai_GUI extends JPanel {
             dcNgayBD.setDate(Date.from(ngayBD.atStartOfDay(ZoneId.systemDefault()).toInstant()));
             dcNgayKT.setDate(Date.from(ngayKT.atStartOfDay(ZoneId.systemDefault()).toInstant()));
             
-            txtMaKM.setEditable(false);
+            // Khi chọn dòng, khóa nút Thêm, mở nút Sửa/Xóa
             btnThem.setEnabled(false);
             btnSua.setEnabled(true);
             btnXoa.setEnabled(true);
@@ -327,13 +319,9 @@ public class KhuyenMai_GUI extends JPanel {
         btnSua.addActionListener(e -> suaKhuyenMai());
         btnXoa.addActionListener(e -> xoaKhuyenMai());
         btnTim.addActionListener(e -> timKhuyenMai());
-        if (btnXoaBoLoc != null) {
-            btnXoaBoLoc.addActionListener(e -> lamMoiFormVaBang());
-        }
-
-        if (cboTrangThai != null) {
-            cboTrangThai.addActionListener(e -> locKhuyenMaiTheoTrangThai());
-        }
+        
+        btnXoaBoLoc.addActionListener(e -> lamMoiFormVaBang());
+        cboTrangThai.addActionListener(e -> locKhuyenMaiTheoTrangThai());
     }
     
     private void lamMoiFormVaBang() {
@@ -342,13 +330,17 @@ public class KhuyenMai_GUI extends JPanel {
         if (cboTrangThai != null) {
             cboTrangThai.setSelectedIndex(0); 
         }
-        
         loadDataToTable(); 
     }
 
- 
+    /**
+     * Hàm xóa trắng form và TẠO MÃ TỰ ĐỘNG
+     */
     private void xoaTrangForm() {
-        txtMaKM.setText("");
+        // ⭐ TỰ ĐỘNG LẤY MÃ MỚI TỪ DAO
+        String maMoi = khuyenMai_DAO.phatSinhMaKM();
+        txtMaKM.setText(maMoi);
+        
         txtTenKM.setText("");
         txtMoTa.setText("");
         txtPhanTramGiam.setText("");
@@ -356,7 +348,7 @@ public class KhuyenMai_GUI extends JPanel {
         dcNgayBD.setDate(null);
         dcNgayKT.setDate(null);
         
-        txtMaKM.setEditable(true);
+        // Reset trạng thái nút
         btnThem.setEnabled(true);
         btnSua.setEnabled(false);
         btnXoa.setEnabled(false);
@@ -364,7 +356,6 @@ public class KhuyenMai_GUI extends JPanel {
         table.clearSelection();
     }
     
- 
     private void locKhuyenMaiTheoTrangThai() {
         String selectedTrangThai = (String) cboTrangThai.getSelectedItem();
         
@@ -381,12 +372,12 @@ public class KhuyenMai_GUI extends JPanel {
             }
         }
         loadDataToTable(filteredList);
-        xoaTrangForm(); 
+        // Lưu ý: Không gọi xoaTrangForm ở đây để tránh mất mã mới đang hiển thị
     }
 
- 
-    // 4. LOGIC CHỨC NĂNG (CRUD)
-   
+    // =========================================================================
+    // PHẦN 3: LOGIC CRUD (THÊM, XÓA, SỬA)
+    // =========================================================================
     
     private KhuyenMai layDuLieuTuForm() throws Exception {
         String ma = txtMaKM.getText().trim();
@@ -396,7 +387,7 @@ public class KhuyenMai_GUI extends JPanel {
         LocalDate ngayBD, ngayKT;
 
         if (ma.isEmpty() || ten.isEmpty() || txtPhanTramGiam.getText().trim().isEmpty()) {
-             throw new Exception("Vui lòng điền đầy đủ các trường bắt buộc (Mã, Tên, Giá trị).");
+             throw new Exception("Vui lòng điền đầy đủ các trường bắt buộc.");
         }
         Date dateBD = dcNgayBD.getDate();
         Date dateKT = dcNgayKT.getDate();
@@ -410,17 +401,15 @@ public class KhuyenMai_GUI extends JPanel {
         try {
              giaTri = Double.parseDouble(txtPhanTramGiam.getText().trim());
              if (giaTri < 0 || giaTri > 1) {
-                 throw new Exception("Giá trị giảm phải nằm trong khoảng từ 0 đến 1 (tương đương 0% đến 100%).");
+                 throw new Exception("Giá trị giảm phải từ 0 đến 1 (ví dụ 0.1).");
              }
         } catch (NumberFormatException e) {
-             throw new Exception("Giá trị giảm không hợp lệ. Vui lòng nhập số thập phân (ví dụ: 0.1 cho 10%).");
+             throw new Exception("Giá trị giảm không hợp lệ.");
         }
 
         if (ngayBD.isAfter(ngayKT)) {
             throw new Exception("Ngày bắt đầu không thể sau Ngày kết thúc.");
         }
-
-        String maQL = "QL001"; 
 
         return new KhuyenMai(ma, ten, moTa, giaTri, ngayBD, ngayKT);
     }
@@ -428,15 +417,16 @@ public class KhuyenMai_GUI extends JPanel {
     private void themKhuyenMai() {
         try {
             KhuyenMai km = layDuLieuTuForm();
+            // Mặc dù mã tự động, kiểm tra trùng vẫn tốt
             if (khuyenMai_DAO.timKhuyenMaiTheoMa(km.getMaKM()) != null) {
-                JOptionPane.showMessageDialog(this, "Mã khuyến mãi đã tồn tại!", "Lỗi Trùng Mã", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Mã khuyến mãi đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             if (khuyenMai_DAO.themKhuyenMai(km)) {
                 JOptionPane.showMessageDialog(this, "Thêm khuyến mãi thành công!");
                 lamMoiFormVaBang();
             } else {
-                JOptionPane.showMessageDialog(this, "Thêm khuyến mãi thất bại! Vui lòng kiểm tra kết nối DB.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Thêm thất bại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi Dữ Liệu", JOptionPane.ERROR_MESSAGE);
@@ -450,7 +440,7 @@ public class KhuyenMai_GUI extends JPanel {
                 JOptionPane.showMessageDialog(this, "Sửa khuyến mãi thành công!");
                 lamMoiFormVaBang();
             } else {
-                JOptionPane.showMessageDialog(this, "Sửa khuyến mãi thất bại! Vui lòng kiểm tra mã.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Sửa thất bại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi Dữ Liệu", JOptionPane.ERROR_MESSAGE);
@@ -461,18 +451,18 @@ public class KhuyenMai_GUI extends JPanel {
         String maKM = txtMaKM.getText().trim();
         if (maKM.isEmpty()) return;
 
-        int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xóa khuyến mãi: " + maKM + "?", "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Xóa khuyến mãi: " + maKM + "?", "Xác nhận", JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
             try {
                 if (khuyenMai_DAO.xoaKhuyenMai(maKM)) {
-                    JOptionPane.showMessageDialog(this, "Xóa khuyến mãi thành công!");
+                    JOptionPane.showMessageDialog(this, "Xóa thành công!");
                     lamMoiFormVaBang();
                 } else {
-                    JOptionPane.showMessageDialog(this, "Xóa khuyến mãi thất bại! Có thể do ràng buộc dữ liệu.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Xóa thất bại (Có thể do ràng buộc dữ liệu).", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (Exception ex) {
-                 JOptionPane.showMessageDialog(this, "Lỗi CSDL khi xóa: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                 JOptionPane.showMessageDialog(this, "Lỗi CSDL: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -496,19 +486,8 @@ public class KhuyenMai_GUI extends JPanel {
         loadDataToTable(danhSachKM);
         
         if (danhSachKM.isEmpty()) {
-             JOptionPane.showMessageDialog(this, "Không tìm thấy khuyến mãi nào phù hợp.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+             JOptionPane.showMessageDialog(this, "Không tìm thấy khuyến mãi nào.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         }
         cboTrangThai.setSelectedIndex(0); 
     }
-
-
-
-//    public static void main(String[] args) {
-//        JFrame frame = new JFrame("Quản Lý Khuyến Mãi");
-//        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        frame.setSize(1200, 800);
-//        frame.add(new KhuyenMai_GUI());
-//        frame.setLocationRelativeTo(null);
-//        frame.setVisible(true);
-//    }
 }

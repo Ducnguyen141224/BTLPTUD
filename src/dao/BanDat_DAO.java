@@ -392,4 +392,20 @@ public class BanDat_DAO {
         }
     }
 
+    public boolean updateTrangThaiBanDat(String maBanDat, String trangThai) {
+        ConnectDB.getInstance();
+        Connection con = ConnectDB.getConnection();
+        PreparedStatement stmt = null;
+        int n = 0;
+        try {
+            String sql = "UPDATE BanDat SET trangThai = ? WHERE maDatBan = ?";
+            stmt = con.prepareStatement(sql);
+            stmt.setString(1, trangThai);
+            stmt.setString(2, maBanDat);
+            n = stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return n > 0;
+    }
 }

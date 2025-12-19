@@ -662,8 +662,7 @@ public class ThanhToan_Gui extends JPanel {
 
     // Trong ThanhToan_Gui.java
     private boolean inHoaDon() {
-        System.out.println(">>> inHoaDon dùng theTV = " +
-                (this.theThanhVienDangChon == null ? "NULL" : this.theThanhVienDangChon.getMaThe()));
+        // 1. Kiểm tra tiền khách đưa (nếu là tiền mặt)
         if (hinhThucThanhToan.equals("Tiền mặt") && soTienKhachDua < tongTienSauGiamGia) {
             JOptionPane.showMessageDialog(this,
                     "Số tiền khách đưa không đủ!",
@@ -672,7 +671,7 @@ public class ThanhToan_Gui extends JPanel {
             return false;
         }
 
-        // TÍNH TỔNG GIẢM GIÁ ĐÃ CÓ (Đã bỏ giamGiaCK)
+        // 2. Tính toán lại
         double tongGiamGia = giamGiaTV + giamGiaKM;
         tongTienSauGiamGia = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
         if (tongTienSauGiamGia < 0) tongTienSauGiamGia = 0;
@@ -685,6 +684,7 @@ public class ThanhToan_Gui extends JPanel {
             String maHD = hdDAO.layMaHDTiepTheo();
             this.maHoaDon = maHD;
 
+            // Tạo hóa đơn
             HoaDon hd = new HoaDon(maHD);
             hd.setNgayLap(LocalDateTime.now());
             hd.setNhanVien(nhanVienHienTai);
@@ -692,9 +692,11 @@ public class ThanhToan_Gui extends JPanel {
             hd.setKhuyenMai(khuyenMaiDaChon);
             hd.setTheThanhVien(this.theThanhVienDangChon);
 
+            // Lấy phiếu đặt bàn hiện tại để liên kết hóa đơn
             BanDat bd = bdDAO.getBanDatDangSuDung(maBan);
             hd.setBanDat(bd);
 
+            // Tạo chi tiết hóa đơn
             ArrayList<CT_HoaDon> dsCT = new ArrayList<>();
             for (Map.Entry<String, Integer> item : gioHangXacNhan.entrySet()) {
                 MonAn mon = monDAO.getMonAnTheoTen(item.getKey());
@@ -702,12 +704,23 @@ public class ThanhToan_Gui extends JPanel {
             }
             hd.setDanhSachChiTietHoaDon(dsCT);
 
+            // 3. Lưu Hóa Đơn vào CSDL
             if (!hdDAO.themHoaDon(hd)) {
                 JOptionPane.showMessageDialog(this, "❌ Lưu hóa đơn thất bại!");
                 return false;
             }
-            // Cập nhật trạng thái bàn
+
+            // 4. XỬ LÝ TRẠNG THÁI SAU KHI LƯU (QUAN TRỌNG NHẤT)
+            
+            // A. Trả trạng thái Bàn về "Trống"
             new Ban_DAO().capNhatTrangThaiBan(maBan, "Trống");
+
+            // B. ⭐⭐ QUAN TRỌNG: Đóng phiếu đặt bàn cũ ⭐⭐
+            // Phải cập nhật phiếu đặt bàn thành "Đã thanh toán" để lần sau không bị lấy lại tiền cọc
+            if (hd.getBanDat() != null) {
+                // Gọi hàm update trong DAO (Xem Bước 2 bên dưới nếu chưa có)
+            	bdDAO.updateTrangThaiBanDat(hd.getBanDat().getMaDatBan(), "Đã thanh toán");
+            }
 
         } catch (Exception ex) {
             ex.printStackTrace();

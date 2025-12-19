@@ -281,43 +281,68 @@ public class MonAn_GUI extends JPanel {
     }
 
     private void addFood() {
+        // 1. Lấy dữ liệu từ form
         String maMon = txtMaMon.getText().trim();
         String tenMon = txtTenMon.getText().trim();
         String loaiMon = cboLoaiMon.getSelectedItem().toString();
         String giaBanStr = txtGiaBan.getText().trim();
         
-        // Kiểm tra lỗi nếu mã món không được phát sinh
+        // --- VALIDATION CƠ BẢN ---
+        
+        // Kiểm tra mã món (phòng trường hợp lỗi hệ thống không sinh mã được)
         if (maMon.isEmpty() || maMon.equals("LỖI MÃ")) {
-            JOptionPane.showMessageDialog(this, "Không thể phát sinh Mã món. Vui lòng kiểm tra kết nối CSDL.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Không thể phát sinh Mã món. Vui lòng kiểm tra kết nối CSDL.", "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
+        // Kiểm tra các trường bắt buộc
         if (tenMon.isEmpty() || giaBanStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin (Tên và Giá bán)!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin (Tên và Giá bán)!", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
+        // --- RÀNG BUỘC 1: KIỂM TRA HÌNH ẢNH ---
+        // Nếu chưa chọn file ảnh (selectedImageFile == null), báo lỗi
+        if (selectedImageFile == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn hình ảnh cho món ăn!", "Thiếu hình ảnh", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Kiểm tra định dạng giá tiền
         double giaBan;
         try {
             giaBan = Double.parseDouble(giaBanStr);
             if (giaBan <= 0) throw new NumberFormatException();
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Giá bán phải là số dương hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Giá bán phải là số dương hợp lệ!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
+        // --- RÀNG BUỘC 2: KIỂM TRA TRÙNG TÊN MÓN ĂN ---
+        // Duyệt qua danh sách hiện tại để xem tên món đã tồn tại chưa (không phân biệt hoa thường)
+        boolean isDuplicateName = currentMonAnList.stream()
+                .anyMatch(mon -> mon.getTenMonAn().equalsIgnoreCase(tenMon));
+
+        if (isDuplicateName) {
+            JOptionPane.showMessageDialog(this, "Tên món ăn '" + tenMon + "' đã tồn tại! Vui lòng đặt tên khác.", "Trùng tên món", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // --- THỰC HIỆN THÊM MÓN ---
+        
         // Giả định Mã quản lý mặc định là QL001
         QuanLy ql = new QuanLy("QL001"); 
-        // LƯU Ý: Lưu TÊN FILE vào CSDL
-        String hinhAnh = (selectedImageFile != null) ? selectedImageFile.getName() : "default.png"; 
+        
+        // Lấy tên file từ file ảnh đã chọn
+        String hinhAnh = selectedImageFile.getName(); 
 
         MonAn newMon = new MonAn(maMon, tenMon, loaiMon, giaBan, hinhAnh, ql);
 
         try {
             if (monAnDAO.themMonAn(newMon)) {
                 JOptionPane.showMessageDialog(this, "Thêm món thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                loadDataToTable();
-                clearForm();
+                loadDataToTable(); // Tải lại bảng
+                clearForm();       // Xóa trắng form và sinh mã mới
             } else {
                 JOptionPane.showMessageDialog(this, "Thêm món thất bại. Có thể Mã món đã tồn tại hoặc lỗi CSDL.", "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
             }

@@ -204,5 +204,27 @@ public class NhanVien_DAO {
         }
         return nv; 
     }
+ // Thêm vào class NhanVien_DAO
+    public String phatSinhMaNV() {
+        String maNV = "NV001"; // Mặc định nếu chưa có
+        try {
+            java.sql.Connection con = connectDB.ConnectDB.getInstance().getConnection();
+            String sql = "SELECT MAX(maNV) FROM NhanVien";
+            java.sql.Statement stm = con.createStatement();
+            java.sql.ResultSet rs = stm.executeQuery(sql);
 
+            if (rs.next()) {
+                String maxMa = rs.getString(1);
+                if (maxMa != null) {
+                    // Tách phần số (NV005 -> 005)
+                    int soHienTai = Integer.parseInt(maxMa.substring(2));
+                    // Tăng lên 1 và format lại (006 -> NV006)
+                    maNV = String.format("NV%03d", soHienTai + 1);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return maNV;
+    }
 }

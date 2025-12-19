@@ -236,6 +236,29 @@ public class KhuyenMai_DAO {
         }
         return dsKM;
     }
+ // Thêm vào class KhuyenMai_DAO
+    public String phatSinhMaKM() {
+        String maKM = "KM001"; // Mặc định nếu chưa có dữ liệu
+        try {
+            java.sql.Connection con = ConnectDB.getInstance().getConnection();
+            String sql = "SELECT MAX(maKM) FROM KhuyenMai";
+            java.sql.Statement stm = con.createStatement();
+            java.sql.ResultSet rs = stm.executeQuery(sql);
+
+            if (rs.next()) {
+                String maxMa = rs.getString(1);
+                if (maxMa != null) {
+                    // Tách phần số ra (Ví dụ: KM005 -> 005)
+                    int soHienTai = Integer.parseInt(maxMa.substring(2));
+                    // Tăng lên 1 và format lại thành chuỗi (006 -> KM006)
+                    maKM = String.format("KM%03d", soHienTai + 1);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return maKM;
+    }
 
 
 }
