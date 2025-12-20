@@ -65,6 +65,7 @@ public class ThanhToan_Gui extends JPanel {
     private JLabel lblTongTienHoaDon;
     private JLabel lblGiamGiaHienTai;
     private JLabel lblQR;
+    private BufferedImage hinhAnhQR = null;
     private JPanel pnlGoiYContainer;
     private KhuyenMai khuyenMaiDaChon = null;
     private double soTienKhachDua = 0;
@@ -95,8 +96,8 @@ public class ThanhToan_Gui extends JPanel {
         this.nhanVienHienTai = nhanVien;
         this.gioVao = gioVao;
         this.gioRa = LocalTime.now();
-        System.out.println(">>> [Constructor] Nhận theTV = " +
-                (this.theThanhVienDangChon == null ? "NULL" : this.theThanhVienDangChon.getMaThe()));
+//        System.out.println(">>> [Constructor] Nhận theTV = " +
+//                (this.theThanhVienDangChon == null ? "NULL" : this.theThanhVienDangChon.getMaThe()));
         this.theThanhVienDangChon = theTV;
         dinhDangTien = NumberFormat.getInstance(new Locale("vi", "VN"));
 
@@ -765,6 +766,12 @@ public class ThanhToan_Gui extends JPanel {
     // ===============================================
 
 
+ // ===============================================
+    // IN HÓA ĐƠN TRỰC TIẾP RA MÁY IN (POS BILL)
+    // ===============================================
+ // ===============================================
+    // IN HÓA ĐƠN TRỰC TIẾP RA MÁY IN (CÓ MÃ QR)
+    // ===============================================
     private void inHoaDonTrucTiep() {
         PrinterJob job = PrinterJob.getPrinterJob();
 
@@ -772,121 +779,146 @@ public class ThanhToan_Gui extends JPanel {
 
             @Override
             public int print(Graphics g, PageFormat pf, int pageIndex) throws PrinterException {
+                // Chỉ in trang đầu tiên (hóa đơn thường dài 1 trang cuộn)
                 if (pageIndex > 0) return NO_SUCH_PAGE;
 
                 Graphics2D g2 = (Graphics2D) g;
+                // Thiết lập gốc tọa độ theo khổ giấy máy in
                 g2.translate(pf.getImageableX(), pf.getImageableY());
-                g2.setFont(new Font("Arial", Font.PLAIN, 11));
+                
+                int y = 20; // Tọa độ Y bắt đầu (dòng đầu tiên)
+                int startX = 10; // Lề trái
+                int rightColX = 200; // Tọa độ cột bên phải (cho ngày, giờ)
+                int valueColX = 300; // Tọa độ cột giá trị tiền (căn phải)
 
-                int y = 20;
-
-                // ====== TIÊU ĐỀ ======
+                // 1. TIÊU ĐỀ
                 g2.setFont(new Font("Arial", Font.BOLD, 16));
-                g2.drawString("HOÁ ĐƠN THANH TOÁN", 140, y);
+                g2.drawString("HOÁ ĐƠN THANH TOÁN", 130, y);
                 y += 25;
 
                 g2.setFont(new Font("Arial", Font.PLAIN, 11));
-                g2.drawString("Mã HĐ: " + maHoaDon, 10, y);
-                g2.drawString("Thu ngân: " + nhanVienHienTai.getHoTen(), 200, y);
+                g2.drawString("Mã HĐ: " + maHoaDon, startX, y);
+                g2.drawString("Thu ngân: " + nhanVienHienTai.getHoTen(), rightColX, y);
                 y += 15;
 
-                g2.drawString("Bàn: " + maBan, 10, y);
+                g2.drawString("Bàn: " + maBan, startX, y);
                 DateTimeFormatter dfDate = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                g2.drawString("Ngày: " + LocalDate.now().format(dfDate), 200, y);
+                g2.drawString("Ngày: " + LocalDate.now().format(dfDate), rightColX, y);
                 y += 15;
 
                 DateTimeFormatter f = DateTimeFormatter.ofPattern("HH:mm");
-
-                g2.drawString("Giờ vào: " + gioVao.format(f), 10, y);
-                g2.drawString("Giờ ra: " + gioRa.format(f), 200, y);
+                g2.drawString("Giờ vào: " + gioVao.format(f), startX, y);
+                g2.drawString("Giờ ra: " + gioRa.format(f), rightColX, y);
                 y += 20;
 
-                g2.drawLine(10, y, 380, y);
-                y += 12;
+                // Kẻ đường gạch ngang
+                g2.drawLine(startX, y, 380, y);
+                y += 15;
 
-                // ====== HEADER BẢNG ======
+                // 2. HEADER BẢNG DỊCH VỤ
                 g2.setFont(new Font("Arial", Font.BOLD, 12));
-                g2.drawString("STT", 10, y);
+                g2.drawString("STT", startX, y);
                 g2.drawString("Tên món", 45, y);
                 g2.drawString("SL", 180, y);
                 g2.drawString("Đơn giá", 215, y);
-                g2.drawString("Thành tiền", 300, y);
+                g2.drawString("Thành tiền", valueColX, y);
                 y += 12;
 
-                g2.drawLine(10, y, 380, y);
-                y += 14;
+                g2.drawLine(startX, y, 380, y);
+                y += 15;
 
-                // ====== IN DANH SÁCH MÓN ======
+                // 3. DANH SÁCH MÓN ĂN
                 g2.setFont(new Font("Arial", Font.PLAIN, 11));
-
                 int stt = 1;
                 for (Map.Entry<String, Integer> e : gioHangXacNhan.entrySet()) {
-
                     String ten = e.getKey();
                     int sl = e.getValue();
-                    long gia = bangGia.get(ten);
-                    long thanhTien = gia * sl;
+                    
+                    if (bangGia.containsKey(ten)) {
+                        long gia = bangGia.get(ten);
+                        long thanhTien = gia * sl;
 
-                    g2.drawString(String.valueOf(stt++), 10, y);
-                    g2.drawString(ten, 45, y);
-                    g2.drawString(String.valueOf(sl), 185, y);
-                    g2.drawString(dinhDangTien.format(gia), 225, y);
-                    g2.drawString(dinhDangTien.format(thanhTien), 310, y);
+                        g2.drawString(String.valueOf(stt++), startX, y);
+                        // Cắt tên món nếu quá dài (đơn giản)
+                        String tenHienThi = ten.length() > 20 ? ten.substring(0, 17) + "..." : ten;
+                        g2.drawString(tenHienThi, 45, y);
+                        
+                        g2.drawString(String.valueOf(sl), 185, y);
+                        g2.drawString(dinhDangTien.format(gia), 215, y);
+                        g2.drawString(dinhDangTien.format(thanhTien), valueColX, y);
 
+                        y += 18; // Xuống dòng cho món tiếp theo
+                    }
+                }
+
+                g2.drawLine(startX, y, 380, y);
+                y += 20;
+
+                // 4. TỔNG KẾT TIỀN
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+
+                // Thành tiền gốc
+                g2.drawString("Thành tiền:", startX, y);
+                g2.drawString(dinhDangTien.format(tongTienHoaDonBanDau), valueColX, y);
+                y += 18;
+
+                // Giảm giá
+                double tongGiamGia = giamGiaTV + giamGiaKM;
+                g2.drawString("Giảm giá:", startX, y);
+                g2.drawString( dinhDangTien.format(tongGiamGia), valueColX, y);
+                y += 18;
+
+                // Trừ cọc
+                if (tienCoc > 0) {
+                    g2.drawString("Trừ cọc:", startX, y);
+                    g2.drawString("-" + dinhDangTien.format(tienCoc), valueColX, y);
                     y += 18;
                 }
 
-                g2.drawLine(10, y, 380, y);
-                y += 20;
-
-                // ====== TỔNG KẾT ======
-                g2.setFont(new Font("Arial", Font.BOLD, 12));
-
-                // Thành tiền
-                g2.drawString("Thành tiền:", 10, y);
-                g2.drawString(dinhDangTien.format(tongTienHoaDonBanDau), 300, y);
-                y += 18;
-
-                // TỔNG GIẢM GIÁ (Đã bỏ CK)
-                double tongGiamGia = giamGiaTV + giamGiaKM;
-                g2.drawString("Giảm giá:", 10, y);
-                g2.drawString(dinhDangTien.format(tongGiamGia), 300, y);
-                y += 18;
-
-                // TRỪ CỌC
-                g2.drawString("Trừ cọc:", 10, y);
-                g2.drawString(dinhDangTien.format(tienCoc), 300, y);
-                y += 18;
-
-                // TỔNG TIỀN SAU GIẢM
+                // Tổng thanh toán
                 double tongSauGiam = tongTienHoaDonBanDau - tongGiamGia - tienCoc;
                 if (tongSauGiam < 0) tongSauGiam = 0;
 
-                g2.drawString("Tổng tiền:", 10, y);
-                g2.drawString(dinhDangTien.format(tongSauGiam), 300, y);
-                y += 22;
-
-                // KHÁCH ĐƯA
-                g2.drawString("Khách đưa:", 10, y);
-                g2.drawString(dinhDangTien.format(soTienKhachDua), 300, y);
-                y += 18;
-
-                // TIỀN THỪA
-                g2.drawString("Tiền thừa:", 10, y);
-                g2.drawString(dinhDangTien.format(soTienKhachDua - tongSauGiam), 300, y);
+                g2.setFont(new Font("Arial", Font.BOLD, 14));
+                g2.drawString("TỔNG CỘNG:", startX, y);
+                g2.drawString(dinhDangTien.format(tongSauGiam), valueColX, y);
                 y += 25;
 
-                // ====== CHÂN BILL ======
+                // Thông tin khách đưa (font nhỏ lại)
+                g2.setFont(new Font("Arial", Font.PLAIN, 12));
+                g2.drawString("Khách đưa:", startX, y);
+                g2.drawString(dinhDangTien.format(soTienKhachDua), valueColX, y);
+                y += 18;
+
+                g2.drawString("Tiền thừa:", startX, y);
+                g2.drawString(dinhDangTien.format(soTienKhachDua - tongSauGiam), valueColX, y);
+                y += 30;
+
+                // 5. CHÂN HÓA ĐƠN & QR CODE
                 g2.setFont(new Font("Arial", Font.ITALIC, 12));
-                g2.drawString("=== Cảm ơn quý khách! ===", 110, y);
+                g2.drawString("=== Cảm ơn quý khách! ===", 120, y);
+                y += 20;
+
+                // ⭐ PHẦN IN MÃ QR (ĐƯỢC THÊM VÀO) ⭐
+                if (hinhAnhQR != null) {
+                    g2.setFont(new Font("Arial", Font.PLAIN, 10));
+                    g2.drawString("Quét mã để thanh toán:", 135, y);
+                    y += 10;
+                    
+                    // Vẽ ảnh QR (Canh giữa)
+                    // Tọa độ X=140, Y=y, Kích thước 100x100
+                    g2.drawImage(hinhAnhQR, 140, y, 100, 100, null);
+                }
 
                 return PAGE_EXISTS;
             }
         });
 
+        // Hiển thị hộp thoại in
         if (job.printDialog()) {
-            try { job.print(); }
-            catch (PrinterException ex) {
+            try { 
+                job.print(); 
+            } catch (PrinterException ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(this, "Lỗi in hóa đơn: " + ex.getMessage());
             }
@@ -932,28 +964,24 @@ public class ThanhToan_Gui extends JPanel {
 
     // tạo qr
  // --- HÀM TẠO QR VIETQR CHUẨN ---
+ // --- HÀM TẠO QR VIETQR CHUẨN (ĐÃ SỬA ĐỂ LƯU ẢNH IN) ---
     private void taoVaHienThiQRCode() {
-        // 1. Cấu hình thông tin tài khoản nhận tiền
-        String nhanHang = "MB";       // Mã ngân hàng (VCB, MB, TCB, VPB,...)
-        String soTaiKhoan = "0983823558"; // Số tài khoản người nhận
-        String tenChuTaiKhoan = "Nguyễn Văn Đức"; // (Tùy chọn hiển thị)
+        String nhanHang = "MB";       
+        String soTaiKhoan = "0983823558"; 
+        String tenChuTaiKhoan = "Nguyễn Văn Đức"; 
 
-        // 2. Lấy số tiền cần thanh toán (Làm tròn số)
         long soTien = (long) Math.round(this.tongTienSauGiamGia);
         
-        // Nếu số tiền <= 0 thì không hiện QR
+        // Nếu số tiền <= 0 thì reset
         if (soTien <= 0) {
             lblQR.setIcon(null);
             lblQR.setText("Không cần thanh toán");
+            hinhAnhQR = null; // ⭐ Reset ảnh in
             return;
         }
 
-        // 3. Nội dung chuyển khoản (Ví dụ: BAN01)
-        // Lưu ý: Nội dung không dấu, không ký tự đặc biệt để tránh lỗi URL
         String noiDung = "THANHTOAN " + this.maBan.replace(" ", ""); 
 
-        // 4. Tạo URL gọi API VietQR (Dịch vụ tạo ảnh QR tự động)
-        // Cấu trúc: https://img.vietqr.io/image/<BANK>-<ACC>-<TEMPLATE>.png?amount=<TIEN>&addInfo=<NOIDUNG>
         try {
             String noiDungEncoded = URLEncoder.encode(noiDung, StandardCharsets.UTF_8.toString());
             String urlAPI = String.format(
@@ -965,7 +993,6 @@ public class ThanhToan_Gui extends JPanel {
                 URLEncoder.encode(tenChuTaiKhoan, StandardCharsets.UTF_8.toString())
             );
 
-            // 5. Tải ảnh từ Internet (Chạy luồng riêng để không đơ giao diện)
             lblQR.setText("Đang tải QR...");
             lblQR.setIcon(null);
 
@@ -974,14 +1001,16 @@ public class ThanhToan_Gui extends JPanel {
                     URL url = new URL(urlAPI);
                     BufferedImage image = ImageIO.read(url);
 
-                    // Resize ảnh cho vừa khung (150x150)
                     if (image != null) {
+                        // ⭐ LƯU ẢNH VÀO BIẾN ĐỂ TÍ NỮA IN
+                        hinhAnhQR = image; 
+
+                        // Resize ảnh cho vừa khung màn hình (150x150)
                         Image scaledImage = image.getScaledInstance(150, 150, Image.SCALE_SMOOTH);
                         
-                        // Cập nhật giao diện trong luồng chính
                         SwingUtilities.invokeLater(() -> {
                             lblQR.setIcon(new ImageIcon(scaledImage));
-                            lblQR.setText(""); // Xóa chữ "Đang tải"
+                            lblQR.setText(""); 
                         });
                     }
                 } catch (Exception e) {

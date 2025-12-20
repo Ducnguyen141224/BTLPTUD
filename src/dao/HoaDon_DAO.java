@@ -95,8 +95,8 @@ public class HoaDon_DAO {
 
                 psHD.setDouble(8, tongSauGiam);
                 psHD.setString(9, "Chờ thanh toán");
-                System.out.println(">>> maThe ghi vào hóa đơn = " + 
-                	    (hd.getTheThanhVien() == null ? "NULL" : hd.getTheThanhVien().getMaThe()));
+//                System.out.println(">>> maThe ghi vào hóa đơn = " + 
+//                	    (hd.getTheThanhVien() == null ? "NULL" : hd.getTheThanhVien().getMaThe()));
                 if (psHD.executeUpdate() <= 0) {
                     con.rollback();
                     return false;
@@ -247,5 +247,30 @@ public class HoaDon_DAO {
         if (loaiHang.equals("Kim cương")) return 0.15;
         if (loaiHang.equals("Vàng")) return 0.12;
         return 0.10;
+    }
+    public HoaDon timHoaDonTheoMa(String maHD) {
+        HoaDon hd = null;
+        String sql = "SELECT * FROM HOADON WHERE maHD = ?";
+
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, maHD);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    hd = createHoaDonFromResultSet(rs);
+                    
+                    // NẾU CẦN LOAD LUÔN DANH SÁCH CHI TIẾT (Khuyến khích)
+                    ArrayList<CT_HoaDon> dsCT = ctHoaDonDAO.layDSCTHoaDonTheoMaHD(hd.getMaHoaDon());
+                    hd.setDanhSachChiTietHoaDon(dsCT);
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return hd;
     }
 }
