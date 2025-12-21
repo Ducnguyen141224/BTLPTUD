@@ -1,9 +1,11 @@
 package gui;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
+import java.net.URL; // Import thêm URL
 import java.util.List;
 import dao.MonAn_DAO;
 import entity.MonAn;
@@ -74,7 +76,7 @@ public class MonAn_GUI extends JPanel {
         // Load data from CSDL khi khởi tạo
         loadDataToTable();
         
-        // 🌟 KHẮC PHỤC LỖI: Hoãn việc gọi clearForm() cho đến khi components có kích thước
+        // Hoãn việc gọi clearForm() cho đến khi components có kích thước
         SwingUtilities.invokeLater(() -> {
             clearForm(); 
         });
@@ -187,8 +189,9 @@ public class MonAn_GUI extends JPanel {
         lblImage.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
         lblImage.setHorizontalAlignment(SwingConstants.CENTER);
         
-        // Ban đầu, đặt kích thước mặc định (placeholder sẽ được gọi trong clearForm)
-        lblImage.setIcon(new ImageIcon(createPlaceholderImage(230, 180)));
+        // Ban đầu, đặt kích thước mặc định
+        // createPlaceholderImage được tích hợp trong loadImageIcon khi null
+        lblImage.setIcon(loadImageIcon("default.png")); 
 
         btnChooseFile = new JButton("Choose file");
         btnChooseFile.addActionListener(e -> chooseImage());
@@ -259,7 +262,6 @@ public class MonAn_GUI extends JPanel {
 
 // PHƯƠNG THỨC XỬ LÝ DỮ LIỆU
 
-
     private void loadDataToTable() {
         tableModel.setRowCount(0);
         try {
@@ -288,27 +290,21 @@ public class MonAn_GUI extends JPanel {
         String giaBanStr = txtGiaBan.getText().trim();
         
         // --- VALIDATION CƠ BẢN ---
-        
-        // Kiểm tra mã món (phòng trường hợp lỗi hệ thống không sinh mã được)
         if (maMon.isEmpty() || maMon.equals("LỖI MÃ")) {
             JOptionPane.showMessageDialog(this, "Không thể phát sinh Mã món. Vui lòng kiểm tra kết nối CSDL.", "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // Kiểm tra các trường bắt buộc
         if (tenMon.isEmpty() || giaBanStr.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin (Tên và Giá bán)!", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // --- RÀNG BUỘC 1: KIỂM TRA HÌNH ẢNH ---
-        // Nếu chưa chọn file ảnh (selectedImageFile == null), báo lỗi
         if (selectedImageFile == null) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn hình ảnh cho món ăn!", "Thiếu hình ảnh", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Kiểm tra định dạng giá tiền
         double giaBan;
         try {
             giaBan = Double.parseDouble(giaBanStr);
@@ -318,8 +314,7 @@ public class MonAn_GUI extends JPanel {
             return;
         }
 
-        // --- RÀNG BUỘC 2: KIỂM TRA TRÙNG TÊN MÓN ĂN ---
-        // Duyệt qua danh sách hiện tại để xem tên món đã tồn tại chưa (không phân biệt hoa thường)
+        // Kiểm tra trùng tên
         boolean isDuplicateName = currentMonAnList.stream()
                 .anyMatch(mon -> mon.getTenMonAn().equalsIgnoreCase(tenMon));
 
@@ -329,8 +324,6 @@ public class MonAn_GUI extends JPanel {
         }
 
         // --- THỰC HIỆN THÊM MÓN ---
-        
-        // Giả định Mã quản lý mặc định là QL001
         QuanLy ql = new QuanLy("QL001"); 
         
         // Lấy tên file từ file ảnh đã chọn
@@ -341,8 +334,8 @@ public class MonAn_GUI extends JPanel {
         try {
             if (monAnDAO.themMonAn(newMon)) {
                 JOptionPane.showMessageDialog(this, "Thêm món thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                loadDataToTable(); // Tải lại bảng
-                clearForm();       // Xóa trắng form và sinh mã mới
+                loadDataToTable(); 
+                clearForm();      
             } else {
                 JOptionPane.showMessageDialog(this, "Thêm món thất bại. Có thể Mã món đã tồn tại hoặc lỗi CSDL.", "Lỗi CSDL", JOptionPane.ERROR_MESSAGE);
             }
@@ -458,12 +451,11 @@ public class MonAn_GUI extends JPanel {
                 cboLoaiMon.setSelectedItem(selectedMon.getLoaiMonAn());
                 txtGiaBan.setText(String.format("%.0f", selectedMon.getGiaMonAn()));
                 
-                // Khóa Mã món khi chỉnh sửa
                 txtMaMon.setEditable(false); 
                 
-                // 🌟 TẢI ẢNH: Lấy tên file từ CSDL và nối thêm "src/image/"
+                // --- QUAN TRỌNG: TẢI ẢNH BẰNG getResource ---
                 lblImage.setIcon(loadImageIcon(selectedMon.getHinhAnh())); 
-                selectedImageFile = null; // Reset file đã chọn để chuẩn bị cho việc chỉnh sửa ảnh mới
+                selectedImageFile = null; 
             }
         }
     }
@@ -475,7 +467,6 @@ public class MonAn_GUI extends JPanel {
         cboLoaiMon.setSelectedIndex(0);
         table.clearSelection();
         
-        // 🌟 TẢI ẢNH MẶC ĐỊNH: Lấy tên file mặc định "default.png"
         lblImage.setIcon(loadImageIcon("default.png")); 
         selectedImageFile = null;
         
@@ -487,7 +478,6 @@ public class MonAn_GUI extends JPanel {
             txtMaMon.setText("LỖI MÃ");
         }
         
-        // Luôn khóa ô Mã món
         txtMaMon.setEditable(false); 
     }
 
@@ -521,12 +511,10 @@ public class MonAn_GUI extends JPanel {
         String loaiMon = cboFilterLoai.getSelectedItem().toString();
         String thuTuGia = "ASC"; // Mặc định: Thấp đến cao
 
-        // 1. Xử lý LỌC THEO LOẠI
         if (loaiMon.equals("Loại món")) {
             loaiMon = "Tất cả";
         }
         
-        // 2. Xử lý LỌC THEO GIÁ (SẮP XẾP)
         String filterGia = cboFilterGia.getSelectedItem().toString();
         if (filterGia.equals("Cao đến thấp")) {
             thuTuGia = "DESC";
@@ -534,7 +522,6 @@ public class MonAn_GUI extends JPanel {
 
         tableModel.setRowCount(0);
         try {
-            // Gọi phương thức DAO với cả hai tham số loaiMon và thuTuGia
             currentMonAnList = monAnDAO.locMonAn(loaiMon, thuTuGia);
             for (MonAn mon : currentMonAnList) {
                 Object[] row = new Object[]{
@@ -554,13 +541,12 @@ public class MonAn_GUI extends JPanel {
 // PHƯƠNG THỨC TIỆN ÍCH
 // ---------------------------------------------------------------------------------------------------
     private void chooseImage() {
-        // Tối ưu hóa: Bắt đầu JFileChooser từ thư mục ảnh của dự án nếu có
-        File initialDirectory = new File("src/image");
-        if (!initialDirectory.exists()) {
-            initialDirectory = new File(".");
-        }
+        // Mở file chooser
+        JFileChooser fileChooser = new JFileChooser();
         
-        JFileChooser fileChooser = new JFileChooser(initialDirectory);
+        // Cố gắng mở tại thư mục src/image nếu đang ở môi trường dev để tiện chọn
+        File devDir = new File("src/image");
+        if(devDir.exists()) fileChooser.setCurrentDirectory(devDir);
         
         fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
             public boolean accept(File f) {
@@ -575,6 +561,7 @@ public class MonAn_GUI extends JPanel {
 
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             selectedImageFile = fileChooser.getSelectedFile();
+            // Load ảnh từ file thực tế vừa chọn để preview
             ImageIcon icon = new ImageIcon(selectedImageFile.getAbsolutePath());
             Image img = icon.getImage().getScaledInstance(lblImage.getWidth(), lblImage.getHeight(), Image.SCALE_SMOOTH);
             lblImage.setIcon(new ImageIcon(img));
@@ -582,7 +569,6 @@ public class MonAn_GUI extends JPanel {
     }
 
     private Image createPlaceholderImage(int width, int height) {
-        // Khắc phục lỗi 0x0 bằng cách kiểm tra và gán kích thước mặc định an toàn
         if (width <= 0 || height <= 0) {
             width = 230; 
             height = 180;
@@ -592,43 +578,35 @@ public class MonAn_GUI extends JPanel {
         g2d.setColor(new Color(240, 240, 240));
         g2d.fillRect(0, 0, width, height);
         g2d.setColor(Color.GRAY);
-        g2d.drawString("Chọn ảnh", width/2 - 25, height/2);
+        g2d.drawString("No Image", width/2 - 25, height/2);
         g2d.dispose();
         return img;
     }
     
     /**
-     * Tải ảnh từ thư mục "src/image" dựa trên tên file lưu trong CSDL.
-     * @param fileName Tên file ảnh (ví dụ: "mon_an_01.png")
-     * @return ImageIcon nếu tìm thấy, ngược lại trả về placeholder
+     * --- HÀM QUAN TRỌNG ĐÃ ĐƯỢC SỬA ---
+     * Tải ảnh từ ClassPath (trong file JAR hoặc src folder)
+     * Thay thế cho cách dùng new File("src/image/...") bị lỗi
      */
     private ImageIcon loadImageIcon(String fileName) {
         int width = lblImage.getWidth();
         int height = lblImage.getHeight();
+        if (width == 0) width = 230; // Kích thước dự phòng
+        if (height == 0) height = 180;
 
-        // 1. Kiểm tra trường hợp ảnh mặc định hoặc null
-        if (fileName == null || fileName.isEmpty() || fileName.equals("default.png")) {
-            return new ImageIcon(createPlaceholderImage(width, height)); 
+        if (fileName == null || fileName.isEmpty()) {
+            fileName = "default.png";
         }
         
-        // 2. Tạo đường dẫn TƯƠNG ĐỐI
-        String relativePath = "src/image/" + fileName; 
+        // Sử dụng getResource để lấy đường dẫn URL bên trong JAR/Classpath
+        URL imgURL = getClass().getResource("/image/" + fileName);
         
-        File imageFile = new File(relativePath);
-
-        if (imageFile.exists()) {
-            try {
-                // Tải ảnh và scale lại kích thước (sử dụng kích thước hiện tại của JLabel)
-                ImageIcon icon = new ImageIcon(imageFile.getAbsolutePath());
-                Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-                return new ImageIcon(img);
-            } catch (Exception e) {
-                System.err.println("Lỗi khi scale ảnh: " + relativePath);
-                e.printStackTrace();
-                return new ImageIcon(createPlaceholderImage(width, height));
-            }
+        if (imgURL != null) {
+            ImageIcon icon = new ImageIcon(imgURL);
+            Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+            return new ImageIcon(img);
         } else {
-//            System.err.println("Không tìm thấy file ảnh tại: " + relativePath);
+            // Nếu không tìm thấy ảnh (hoặc ảnh default cũng mất), vẽ placeholder
             return new ImageIcon(createPlaceholderImage(width, height));
         }
     }

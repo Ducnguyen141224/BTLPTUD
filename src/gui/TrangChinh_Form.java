@@ -2,6 +2,7 @@ package gui;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.net.URL; // Import thêm URL
 import javax.swing.*;
 
 import connectDB.ConnectDB;
@@ -37,25 +38,22 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         pTrai.setLayout(new BoxLayout(pTrai, BoxLayout.Y_AXIS));
         pTrai.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10)); 
         
-        // Logo
-        try {
-            ImageIcon logoIcon = new ImageIcon("src/image/logo.png");
-            if (logoIcon.getIconWidth() > 0) {
-                JLabel lblLogo = new JLabel();
-                Image scaledImage = logoIcon.getImage().getScaledInstance(200, 150, Image.SCALE_SMOOTH);
-                lblLogo.setIcon(new ImageIcon(scaledImage));
-                lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
-                lblLogo.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
-                pTrai.add(lblLogo);
-            } else {
-                JLabel lblText = new JLabel("TRIPLE ND");
-                lblText.setFont(new Font("Arial", Font.BOLD, 24));
-                lblText.setAlignmentX(Component.CENTER_ALIGNMENT);
-                lblText.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
-                pTrai.add(lblText);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        // --- 1. SỬA LOGO (Dùng hàm getIcon mới) ---
+        JLabel lblLogo = new JLabel();
+        ImageIcon logoIcon = getIcon("image/logo.png", 200, 150); // Bỏ "src/"
+        
+        if (logoIcon != null) {
+            lblLogo.setIcon(logoIcon);
+            lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
+            lblLogo.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
+            pTrai.add(lblLogo);
+        } else {
+            // Fallback nếu không thấy ảnh
+            JLabel lblText = new JLabel("TRIPLE ND");
+            lblText.setFont(new Font("Arial", Font.BOLD, 24));
+            lblText.setAlignmentX(Component.CENTER_ALIGNMENT);
+            lblText.setBorder(BorderFactory.createEmptyBorder(0, 0, 80, 0));
+            pTrai.add(lblText);
         }
         
         pTrai.setBackground(colorNen);
@@ -64,7 +62,7 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         cardLayout = new CardLayout();
         pnlContent = new JPanel(cardLayout);
 
-        // Khởi tạo các module (Giữ nguyên logic try-catch tách biệt của bạn)
+        // Khởi tạo các module
         try {
             pnlContent.add(new Dashboard_GUI(), "Dashboard");
         } catch (Exception e) {
@@ -102,41 +100,41 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
             "Khuyến mãi",
         };
 
+        // --- 2. SỬA ĐƯỜNG DẪN ẢNH (Bỏ "src/") ---
         String[] imgPaths = {
-            "src/image/dashboard.png",
-            "src/image/ban.png", // Bạn thay đổi icon tùy ý ở đây
-            "src/image/monan.png",
-            "src/image/khachhang.png",
-            "src/image/nhanvien.png",
-            "src/image/nhanvien.png",
-            "src/image/baocao.png",
-            "src/image/khuyenmai.png",
+            "image/dashboard.png",
+            "image/ban.png",
+            "image/monan.png",
+            "image/khachhang.png",
+            "image/nhanvien.png",
+            "image/hoadon.png", 
+            "image/baocao.png",
+            "image/khuyenmai.png",
         };
 
         // --- Vòng lặp tạo nút ---
         for (int i = 0; i < btnChucnang.length; i++) {
             String label = btnChucnang[i];
             
+            // Hàm createMenuButton đã được sửa để dùng getIcon bên dưới
             JButton btn = createMenuButton(label, imgPaths[i], colorNhat, fontMenu);
 
             if (label.equals("Quản lý bàn đặt")) {
                 btn.setText(label + "   ▼");
                 
-                // Truyền nút cha (btn) vào để khi chọn con thì cha sáng
                 JPopupMenu popupMenu = createBanDatPopupMenu(btn); 
                 
                 btn.addActionListener(e -> {
-                    setButtonActive(btn); // Click vào thì sáng ngay
+                    setButtonActive(btn);
                     popupMenu.show(btn, 0, btn.getHeight());
                 });
             } else {
                 btn.addActionListener(e -> {
                     cardLayout.show(pnlContent, label);
-                    setButtonActive(btn); // Click vào thì sáng
+                    setButtonActive(btn);
                 });
             }
             
-            // Mặc định Dashboard sáng khi mở app
             if (label.equals("Dashboard")) {
                 setButtonActive(btn);
             }
@@ -145,8 +143,8 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
             pTrai.add(Box.createRigidArea(new Dimension(0, 15))); 
         }
 
-        // Nút đăng xuất
-        btndangxuat = createMenuButton("Đăng xuất", "src/image/dangxuat.png", colorNhat, fontMenu);
+        // Nút đăng xuất (Sửa đường dẫn ảnh)
+        btndangxuat = createMenuButton("Đăng xuất", "image/dangxuat.png", colorNhat, fontMenu);
         btndangxuat.addActionListener(this);
         pTrai.add(btndangxuat);
         
@@ -155,13 +153,32 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         setVisible(true);
     }
     
-    // --- 2. HÀM XỬ LÝ LOGIC ACTIVE (HIGHLIGHT) ---
+    // --- 3. HÀM HỖ TRỢ LẤY ẢNH TỪ RESOURCE (QUAN TRỌNG) ---
+    /**
+     * Tải ảnh từ thư mục resource (src/image), tự động resize.
+     * @param path Đường dẫn (ví dụ: "image/logo.png") - KHÔNG CÓ "src/"
+     * @param width Chiều rộng muốn resize
+     * @param height Chiều cao muốn resize
+     * @return ImageIcon hoặc null nếu không tìm thấy
+     */
+    private ImageIcon getIcon(String path, int width, int height) {
+        // Thêm dấu "/" vào đầu để tìm từ gốc thư mục src (classpath root)
+        URL imgURL = getClass().getResource("/" + path);
+        
+        if (imgURL != null) {
+            ImageIcon icon = new ImageIcon(imgURL);
+            Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+            return new ImageIcon(img);
+        } else {
+            System.err.println("Lỗi: Không tìm thấy ảnh tại đường dẫn: /" + path);
+            return null;
+        }
+    }
+
     private void setButtonActive(JButton btn) {
-        // Nếu có nút cũ đang active thì trả về màu nhạt
         if (currentBtn != null && currentBtn != btn) {
             currentBtn.setBackground(colorNhat);
         }
-        // Set nút mới thành màu đậm
         currentBtn = btn;
         currentBtn.setBackground(colorDam);
     }
@@ -177,13 +194,11 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
     private JButton createMenuButton(String text, String iconPath, Color bgColor, Font font) {
         JButton btn = new JButton(text);
         
-        try {
-            ImageIcon icon = new ImageIcon(iconPath);
-            if(icon.getIconWidth() > 0) {
-                Image img = icon.getImage().getScaledInstance(25, 25, Image.SCALE_SMOOTH);
-                btn.setIcon(new ImageIcon(img));
-            }
-        } catch (Exception e) { }
+        // --- 4. SỬA ĐOẠN TẢI ẢNH BẰNG HÀM getIcon ---
+        ImageIcon icon = getIcon(iconPath, 25, 25);
+        if (icon != null) {
+            btn.setIcon(icon);
+        }
         
         btn.setFont(font);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
@@ -191,23 +206,19 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         btn.setMaximumSize(new Dimension(250, 50));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setFocusPainted(false);
-        // Giữ nguyên viền và padding như cũ để không đổi kích thước
         btn.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15)); 
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBackground(bgColor);
         btn.setForeground(Color.BLACK);
         
-        // --- 3. SỬA MOUSE LISTENER ĐỂ GIỮ MÀU ---
         btn.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                // Rê chuột vào thì luôn đậm
                 btn.setBackground(colorDam);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                // Chuột rời đi: Chỉ nhạt lại nếu KHÔNG PHẢI nút đang Active
                 if (btn != currentBtn) {
                     btn.setBackground(colorNhat);
                 }
@@ -217,24 +228,23 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         return btn;
     }
     
-    // Nhận vào nút cha để highlight
     private JPopupMenu createBanDatPopupMenu(JButton parentBtn) {
         JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.setBackground(colorNhat);
         popupMenu.setBorder(BorderFactory.createLineBorder(colorDam, 1));
         
-        // Dùng icon ảnh chuẩn
-        JMenuItem itemFormDat = createMenuItem("Form Đặt Bàn", "src/image/reservation.png"); 
-        JMenuItem itemDSDat = createMenuItem("Danh Sách Đặt Bàn", "src/image/list.png"); 
+        // --- 5. SỬA ĐƯỜNG DẪN ẢNH POPUP (Bỏ "src/") ---
+        JMenuItem itemFormDat = createMenuItem("Form Đặt Bàn", "image/reservation.png"); 
+        JMenuItem itemDSDat = createMenuItem("Danh Sách Đặt Bàn", "image/list.png"); 
         
         itemFormDat.addActionListener(e -> {
             cardLayout.show(pnlContent, "PANEL_DAT_BAN");
-            setButtonActive(parentBtn); // Giữ nút cha sáng
+            setButtonActive(parentBtn); 
         });
         
         itemDSDat.addActionListener(e -> {
             cardLayout.show(pnlContent, "PANEL_DS_DAT_BAN");
-            setButtonActive(parentBtn); // Giữ nút cha sáng
+            setButtonActive(parentBtn); 
         });
 
         popupMenu.add(itemFormDat);
@@ -250,14 +260,12 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         item.setPreferredSize(new Dimension(218, 40));
         item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         
-        try {
-            ImageIcon icon = new ImageIcon(iconPath);
-            if (icon.getIconWidth() > 0) {
-                Image img = icon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
-                item.setIcon(new ImageIcon(img));
-                item.setIconTextGap(10);
-            }
-        } catch (Exception e) { }
+        // --- 6. SỬA ĐOẠN TẢI ẢNH MENU CON ---
+        ImageIcon icon = getIcon(iconPath, 20, 20);
+        if (icon != null) {
+            item.setIcon(icon);
+            item.setIconTextGap(10);
+        }
 
         item.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) {
@@ -270,7 +278,6 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         
         return item;
     }
-
     
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -288,7 +295,6 @@ public class TrangChinh_Form extends JFrame implements ActionListener {
         }
     }
     
-   
     public static void main(String[] args) {
         try {
             ConnectDB.getInstance().connect();
