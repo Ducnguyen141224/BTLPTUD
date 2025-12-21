@@ -230,11 +230,13 @@ INSERT INTO NHANVIEN (maNV,hoTen,CCCD,soDienThoai,email,ngaySinh,gioiTinh,trangT
 ('NV008', N'Nguyễn Phương Anh', '111111111008', '0911000008', 'nguyenphuonganh@qlnh.vn', '1997-06-18', 1, N'Đang làm', 'QL001'),
 ('NV009', N'Bùi Tuấn Kiệt', '111111111009', '0911000009', 'buituankiet@qlnh.vn', '1995-12-01', 0, N'Đang làm', 'QL001'),
 ('NV010', N'Trần Thị Mai', '111111111010', '0911000010', 'tranthimai@qlnh.vn', '1998-04-25', 1, N'Đang làm', 'QL001');
+('QL001', N'Nguyễn Văn Đức', '000000000001', '0909999999', 'quanly@qlnh.vn', '1990-01-01', 0, N'Đang làm', 'QL001');
+
 GO
 
 -- INSERT TAIKHOAN (QL + 10 NV) (username = maNV/maQL)
 INSERT INTO TAIKHOAN (tenDangNhap,matKhau,vaiTro,trangThai,maNV,maQL) VALUES
-('QL001','123456',N'Quản Lý',N'Hoạt động',NULL,'QL001'),
+('QL001','123456',N'Quản Lý',N'Hoạt động','QL001','QL001'),
 ('NV001','123456',N'Nhân Viên',N'Hoạt động','NV001','QL001'),
 ('NV002','123456',N'Nhân Viên',N'Hoạt động','NV002','QL001'),
 ('NV003','123456',N'Nhân Viên',N'Hoạt động','NV003','QL001'),

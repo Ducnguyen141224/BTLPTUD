@@ -233,9 +233,9 @@ public class DangNhap_GUI extends JFrame implements ActionListener {
         }
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new DangNhap_GUI().setVisible(true);
-        });
-    }
+//    public static void main(String[] args) {
+//        SwingUtilities.invokeLater(() -> {
+//            new DangNhap_GUI().setVisible(true);
+//        });
+//    }
 }

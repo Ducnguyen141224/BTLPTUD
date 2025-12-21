@@ -281,7 +281,7 @@ public class BanDat_DAO {
 
         String sql =
                 "SELECT COUNT(*) FROM BANDAT WHERE maBan=? AND ngayDat=? " +
-                "AND trangThai NOT IN (N'Đã hủy', N'Hoàn thành') " +
+                "AND trangThai NOT IN (N'Đã hủy', N'Đã nhận', N'Đã thanh toán') " +
                 "AND CAST(gioDat AS TIME) >= CAST(? AS TIME) " +
                 "AND CAST(gioDat AS TIME) <= CAST(? AS TIME)";
 

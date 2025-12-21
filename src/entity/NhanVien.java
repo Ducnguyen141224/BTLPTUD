@@ -51,7 +51,7 @@ public class NhanVien {
         if (maNV == null || maNV.trim().isEmpty()) {
             throw new IllegalArgumentException("Mã nhân viên không được để trống.");
         }
-        if (!maNV.matches("^NV[0-9]{3}$")) {
+        if (!maNV.matches("^(NV|QL)\\d{3}$")) {
             throw new IllegalArgumentException("Mã nhân viên phải có dạng NVxxx (ví dụ: NV001).");
         }
         this.maNV = maNV;

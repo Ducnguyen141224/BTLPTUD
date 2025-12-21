@@ -1054,15 +1054,15 @@ public class BanDat_GUI extends JPanel {
         loadBanCards(banDAO.getAllBan());
     }
     
-    public static void main(String[] args) throws SQLException {
-        ConnectDB.getInstance().connect();
-        SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Đặt Bàn");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(1400, 900);
-            frame.add(new BanDat_GUI());
-            frame.setLocationRelativeTo(null);
-            frame.setVisible(true);
-        });
-    }
+//    public static void main(String[] args) throws SQLException {
+//        ConnectDB.getInstance().connect();
+//        SwingUtilities.invokeLater(() -> {
+//            JFrame frame = new JFrame("Đặt Bàn");
+//            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+//            frame.setSize(1400, 900);
+//            frame.add(new BanDat_GUI());
+//            frame.setLocationRelativeTo(null);
+//            frame.setVisible(true);
+//        });
+//    }
 }

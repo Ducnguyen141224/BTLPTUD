@@ -8,6 +8,7 @@ public class QuanLy {
     private String email;
     private String soDienThoai;
 
+    public QuanLy() {}
     public QuanLy(String maQL) {
         super();
         this.maQL = maQL;

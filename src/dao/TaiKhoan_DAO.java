@@ -7,58 +7,75 @@ import java.sql.SQLException;
 
 import connectDB.ConnectDB;
 import entity.NhanVien;
+import entity.QuanLy;
 import entity.TaiKhoan;
 
 public class TaiKhoan_DAO {
 
 	public TaiKhoan dangNhap(String tenDangNhap, String matKhau) {
-		String sql = 
-		        "SELECT tk.tenDangNhap, tk.matKhau, tk.vaiTro, tk.trangThai, "
-		      + "       nv.maNV, nv.hoTen "
-		      + "FROM TaiKhoan tk "
-		      + "JOIN NhanVien nv ON tk.maNV = nv.maNV "
-		      + "WHERE tk.tenDangNhap = ? AND tk.matKhau = ?";
+        // Sử dụng LEFT JOIN để lấy được tài khoản ngay cả khi maNV là NULL
+        String sql = "SELECT tk.tenDangNhap, tk.matKhau, tk.vaiTro, tk.trangThai, "
+                   + "       nv.maNV, nv.hoTen AS tenNV, "
+                   + "       ql.maQL, ql.hoTen AS tenQL "  // Giả sử bảng QuanLy có cột hoTen
+                   + "FROM TaiKhoan tk "
+                   + "LEFT JOIN NhanVien nv ON tk.maNV = nv.maNV "
+                   + "LEFT JOIN QuanLy ql ON tk.maQL = ql.maQL " // Liên kết thêm bảng QuanLy (dựa vào cột maQL trong ảnh bạn gửi)
+                   + "WHERE tk.tenDangNhap = ? AND tk.matKhau = ?";
 
-	    try (Connection con = ConnectDB.getConnection();
-	         PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-	        ps.setString(1, tenDangNhap);
-	        ps.setString(2, matKhau);
+            ps.setString(1, tenDangNhap);
+            ps.setString(2, matKhau);
 
-	        ResultSet rs = ps.executeQuery();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    // 1. Kiểm tra trạng thái khóa
+                    if ("Khóa".equalsIgnoreCase(rs.getString("trangThai")) || 
+                        "Ngưng hoạt động".equalsIgnoreCase(rs.getString("trangThai"))) {
+                        return null; 
+                    }
 
-	        if (rs.next()) {
+                    // 2. Lấy thông tin chung
+                    String userName = rs.getString("tenDangNhap");
+                    String pass = rs.getString("matKhau");
+                    String role = rs.getString("vaiTro");
+                    String status = rs.getString("trangThai");
 
-	            // Nếu tài khoản bị khóa → return null để báo lỗi đăng nhập
-	            if ("Khóa".equalsIgnoreCase(rs.getString("trangThai"))) {
-	                return null;
-	            }
+                    NhanVien nhanVien = null;
+                    QuanLy quanLy = null;
 
-	            // Tạo nhân viên (CHỈ QUAN TÂM MA_NV + HO_TEN lúc đăng nhập)
-	            NhanVien nv = new NhanVien();
-	            nv.setMaNV(rs.getString("maNV"));
-	            nv.setHoTen(rs.getString("hoTen"));
+                    // 3. Xử lý phân loại đối tượng dựa trên dữ liệu trả về
+                    if (rs.getString("maNV") != null) {
+                        // Đây là Nhân Viên
+                        nhanVien = new NhanVien();
+                        nhanVien.setMaNV(rs.getString("maNV"));
+                        nhanVien.setHoTen(rs.getString("tenNV"));
+                    } 
+                    
+                    if (rs.getString("maQL") != null) {
+                        // Đây là Quản Lý
+                        quanLy = new QuanLy();
+                        quanLy.setMaQL(rs.getString("maQL"));
+                        // Nếu bảng QuanLy có cột họ tên thì set vào, nếu không thì để trống hoặc xử lý tùy entity của bạn
+                        try {
+                            quanLy.setHoTen(rs.getString("tenQL"));
+                        } catch (Exception e) {
+                            // Bỏ qua nếu Entity QuanLy không có setter HoTen hoặc SQL ko có cột này
+                        }
+                    }
 
-	            // Tạo tài khoản
-	            TaiKhoan tk = new TaiKhoan(
-	                    rs.getString("tenDangNhap"),
-	                    rs.getString("matKhau"),
-	                    rs.getString("vaiTro"),
-	                    nv,           // Gán nhân viên
-	                    null,         // QuanLy = null (không cần lúc đăng nhập)
-	                    rs.getString("trangThai")
-	            );
-
-	            return tk;  // 🔥 TRẢ VỀ TÀI KHOẢN ĐẦY ĐỦ
-	        }
-
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	    }
-
-	    return null; // Đăng nhập sai
-	}
-
+                    // 4. Tạo đối tượng TaiKhoan
+                    // Lưu ý: Constructor này phải khớp với Entity TaiKhoan của bạn
+                    TaiKhoan tk = new TaiKhoan(userName, pass, role, nhanVien, quanLy, status);
+                    return tk;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 
 
  // Kiểm tra thông tin tài khoản + email + CCCD

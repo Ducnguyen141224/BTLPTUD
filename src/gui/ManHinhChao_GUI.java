@@ -16,13 +16,12 @@ public class ManHinhChao_GUI extends JWindow {
 
         // 2. Phần HÌNH ẢNH TRUNG TÂM
         JLabel lblAnhNen = new JLabel();
-        // Thay "image/splash_logo.png" bằng tên ảnh của nhóm bạn
         ImageIcon icon = getIcon("image/man_hinh_cho.png", 600, 330); 
         
         if (icon != null) {
             lblAnhNen.setIcon(icon);
         } else {
-            // Nếu chưa có ảnh thì hiện chữ tạm
+ 
             lblAnhNen.setText("PHẦN MỀM QUẢN LÝ NHÀ HÀNG");
             lblAnhNen.setHorizontalAlignment(SwingConstants.CENTER);
             lblAnhNen.setFont(new Font("Arial", Font.BOLD, 20));
@@ -35,11 +34,11 @@ public class ManHinhChao_GUI extends JWindow {
         progressBar = new JProgressBar();
         progressBar.setMinimum(0);
         progressBar.setMaximum(100);
-        progressBar.setStringPainted(true); // Hiện %
-        progressBar.setForeground(new Color(255, 140, 0)); // Màu cam giống hình mẫu
-        progressBar.setBackground(Color.WHITE); // Màu nền thanh
-        progressBar.setPreferredSize(new Dimension(600, 20)); // Độ cao thanh
-        progressBar.setBorder(null); // Bỏ viền cho đẹp
+        progressBar.setStringPainted(true);
+        progressBar.setForeground(new Color(255, 140, 0));
+        progressBar.setBackground(Color.WHITE); 
+        progressBar.setPreferredSize(new Dimension(600, 20)); 
+        progressBar.setBorder(null);
         
         add(progressBar, BorderLayout.SOUTH);
 
@@ -51,7 +50,7 @@ public class ManHinhChao_GUI extends JWindow {
     }
 
     private void chayLoading() {
-        // Tạo luồng riêng để chạy loading không bị đơ giao diện
+        
         new Thread(() -> {
             try {
                 for (int i = 0; i <= 100; i++) {
@@ -63,11 +62,11 @@ public class ManHinhChao_GUI extends JWindow {
                     else if (i < 90) progressBar.setString("Đang tải tài nguyên hình ảnh...");
                     else progressBar.setString("Hoàn tất!");
 
-                    // Tốc độ chạy (số càng nhỏ chạy càng nhanh)
+                    
                     Thread.sleep(30); 
                 }
                 
-                // --- CHẠY XONG THÌ LÀM GÌ? ---
+                
                 this.dispose(); // 1. Tắt màn hình chào
                 
                 // 2. Mở màn hình Đăng Nhập
@@ -92,8 +91,8 @@ public class ManHinhChao_GUI extends JWindow {
         return null;
     }
 
-    // Main để test thử riêng màn hình này
-    public static void main(String[] args) {
-        new ManHinhChao_GUI();
-    }
+//    
+//    public static void main(String[] args) {
+//        new ManHinhChao_GUI();
+//    }
 }

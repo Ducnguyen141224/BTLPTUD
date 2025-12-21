@@ -241,23 +241,30 @@ public class GoiMon_GUI extends JPanel {
         capNhatBangGio();
         JOptionPane.showMessageDialog(this, "Đã thêm " + sl + " " + ten + " vào giỏ hàng");
     }
-
-    private void capNhatBangGio() {
-        modelMonDangGoi.setRowCount(0);
-        int stt = 1;
+    private void capNhatChiTietTongTien() {
         tongTien = 0;
         for (Map.Entry<String, Integer> e : gioHang.entrySet()) {
             String ten = e.getKey();
             int sl = e.getValue();
             int gia = bangGia.getOrDefault(ten, 0);
-            
-            modelMonDangGoi.addRow(new Object[]{stt++, ten, sl, dinhDangTien.format((long)gia * sl) + " VND", "Xóa"});
-            tongTien += (long)gia * sl;
+            tongTien += (long) gia * sl;
         }
-        
         lblTongTienDangGoi.setText(dinhDangTien.format(tongTien) + " VND");
-        
         lblTieuDeDangGoi.setText("Món đang gọi (" + gioHang.size() + ")");
+    }
+    private void capNhatBangGio() {
+        modelMonDangGoi.setRowCount(0); // Hàm này chỉ dùng khi thêm/xóa món
+        int stt = 1;
+        
+        for (Map.Entry<String, Integer> e : gioHang.entrySet()) {
+            String ten = e.getKey();
+            int sl = e.getValue();
+            int gia = bangGia.getOrDefault(ten, 0);
+            
+            // Cột 2 là số lượng, cột 3 là thành tiền
+            modelMonDangGoi.addRow(new Object[]{stt++, ten, sl, dinhDangTien.format((long)gia * sl) + " VND", "Xóa"});
+        }
+        capNhatChiTietTongTien(); // Gọi hàm tính tổng
     }
 
     private void xoaKhoiGio(String ten) {
@@ -897,17 +904,17 @@ public class GoiMon_GUI extends JPanel {
     // END: Thêm lớp SpinnerCellRenderer
     
     // START: Thêm lớp SpinnerCellEditor
+
     class SpinnerCellEditor extends AbstractCellEditor implements TableCellEditor {
         private JSpinner spinner;
         private JPanel editorComponent;
 
         public SpinnerCellEditor() {
             spinner = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
+            // Khi spinner thay đổi, dừng edit ngay lập tức để lưu giá trị
             spinner.addChangeListener(e -> {
-                try {
-                    SwingUtilities.invokeLater(() -> stopCellEditing());
-                } catch (Exception ex) {
-                }
+                // Dùng invokeLater để tránh xung đột luồng
+                SwingUtilities.invokeLater(this::stopCellEditing);
             });
 
             JPanel pnl = new JPanel(new BorderLayout());
@@ -932,19 +939,32 @@ public class GoiMon_GUI extends JPanel {
         public boolean stopCellEditing() {
             try {
                 int row = tblMonDangGoi.getEditingRow();
-                if (row >= 0) {
+                // ⭐ QUAN TRỌNG: Kiểm tra dòng hợp lệ để tránh lỗi IndexOutOfBounds
+                if (row >= 0 && row < tblMonDangGoi.getRowCount()) {
                     String tenMon = (String) modelMonDangGoi.getValueAt(row, 1);
                     int newValue = (Integer) spinner.getValue(); 
 
                     if (newValue <= 0) { 
+                        // Trường hợp đặc biệt: Xóa món -> Lúc này mới cần load lại bảng
                         xoaKhoiGio(tenMon);
                     } else {
+                        // 1. Cập nhật dữ liệu ngầm (Map)
                         gioHang.put(tenMon, newValue); 
-                        capNhatBangGio(); 
+                        
+                        // 2. Tính lại thành tiền của dòng này
+                        int gia = bangGia.getOrDefault(tenMon, 0);
+                        long thanhTien = (long) gia * newValue;
+                        
+                        // 3. Cập nhật trực tiếp lên giao diện (Ô Thành tiền - Cột 3)
+                        // LƯU Ý: Không được gọi capNhatBangGio() ở đây vì nó sẽ xóa dòng gây lỗi
+                        modelMonDangGoi.setValueAt(dinhDangTien.format(thanhTien) + " VND", row, 3);
+                        
+                        // 4. Chỉ tính lại tổng tiền (Không vẽ lại bảng)
+                        capNhatChiTietTongTien();
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                // Bắt lỗi để không crash chương trình nếu thao tác quá nhanh
                 return false;
             }
             return super.stopCellEditing();
