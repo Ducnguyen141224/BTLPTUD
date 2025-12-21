@@ -2,6 +2,7 @@ package gui;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.net.URL; // Cần import thêm lớp này
 import javax.swing.*;
 
 import dao.TaiKhoan_DAO;
@@ -18,16 +19,24 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
         setTitle("Quên mật khẩu");
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        // Hình nền
-        ImageIcon bgIcon = new ImageIcon("src/image/login.png");
-        Image img = bgIcon.getImage().getScaledInstance(500, 400, Image.SCALE_SMOOTH);
-        JLabel nen = new JLabel(new ImageIcon(img));
-        nen.setLayout(new BorderLayout());
-        setContentPane(nen);
+        // --- PHẦN SỬA ĐỔI HÌNH ẢNH ---
+        // Sử dụng getResource để đọc ảnh từ bộ nhớ JAR
+        URL url = getClass().getResource("/image/login.png");
+        if (url != null) {
+            ImageIcon bgIcon = new ImageIcon(url);
+            Image img = bgIcon.getImage().getScaledInstance(500, 400, Image.SCALE_SMOOTH);
+            JLabel nen = new JLabel(new ImageIcon(img));
+            nen.setLayout(new BorderLayout());
+            setContentPane(nen);
+        } else {
+            // Trường hợp không tìm thấy ảnh (phòng lỗi)
+            getContentPane().setBackground(new Color(139, 69, 19)); 
+        }
+        // ------------------------------
 
         Font font = new Font("Arial", Font.BOLD, 16);
 
-//      Panel tiêu đề
+        // Panel tiêu đề
         JPanel pTieuDe = new JPanel();
         pTieuDe.setLayout(new GridBagLayout());
         JLabel lblTieuDe = new JLabel("Quên mật khẩu");
@@ -38,6 +47,8 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
 
         // Box chính
         Box pBody = Box.createVerticalBox();
+        
+        // Cấu trúc các thành phần Box (Giữ nguyên logic của bạn)
         Box pTenTK = Box.createHorizontalBox();
         lblTenTK = new JLabel("Tên tài khoản:");
         lblTenTK.setFont(font);
@@ -96,7 +107,6 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
         pNut.add(Box.createHorizontalStrut(10));
         pNut.add(btnThoat);
 
-        // Thêm vào pBody
         pBody.add(pTenTK);
         pBody.add(Box.createVerticalStrut(10));
         pBody.add(pEmail);
@@ -109,7 +119,6 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
         pBody.add(Box.createVerticalStrut(20));
         pBody.add(pNut);
 
-        // Căn đều label
         Dimension lblSize = lblTenTK.getPreferredSize();
         lblEmail.setPreferredSize(lblSize);
         lblCCCD.setPreferredSize(lblSize);
@@ -130,7 +139,6 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
         add(pTieuDe, BorderLayout.NORTH);
         add(pnlNoiDung, BorderLayout.CENTER);
 
-        // Sự kiện
         btnKiemTra.addActionListener(this);
         btnCapNhat.addActionListener(this);
         btnThoat.addActionListener(this);
@@ -143,6 +151,7 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        // Giữ nguyên logic xử lý sự kiện của bạn
         Object o = e.getSource();
         TaiKhoan_DAO dao = new TaiKhoan_DAO();
 
@@ -162,7 +171,6 @@ public class QuenMatKhau_GUI extends JFrame implements ActionListener {
             } else {
                 JOptionPane.showMessageDialog(this, "Thông tin không chính xác!");
             }
-
         }
 
         if (o == btnCapNhat) {
