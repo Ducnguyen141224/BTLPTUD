@@ -229,8 +229,8 @@ INSERT INTO NHANVIEN (maNV,hoTen,CCCD,soDienThoai,email,ngaySinh,gioiTinh,trangT
 ('NV007', N'Hoàng Văn Đức', '111111111007', '0911000007', 'hoangvanduc@qlnh.vn', '1994-03-30', 0, N'Đang làm', 'QL001'),
 ('NV008', N'Nguyễn Phương Anh', '111111111008', '0911000008', 'nguyenphuonganh@qlnh.vn', '1997-06-18', 1, N'Đang làm', 'QL001'),
 ('NV009', N'Bùi Tuấn Kiệt', '111111111009', '0911000009', 'buituankiet@qlnh.vn', '1995-12-01', 0, N'Đang làm', 'QL001'),
-('NV010', N'Trần Thị Mai', '111111111010', '0911000010', 'tranthimai@qlnh.vn', '1998-04-25', 1, N'Đang làm', 'QL001');
-('QL001', N'Nguyễn Văn Đức', '000000000001', '0909999999', 'quanly@qlnh.vn', '1990-01-01', 0, N'Đang làm', 'QL001');
+('NV010', N'Trần Thị Mai', '111111111010', '0911000010', 'tranthimai@qlnh.vn', '1998-04-25', 1, N'Đang làm', 'QL001'),
+('QL001', N'Nguyễn Hoàng Long', '0909123456', 'nguyenhoanglong@qlnh.vn', '1982-03-15', '012345678901', 0, N'Đang làm');
 
 GO
 
